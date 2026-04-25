@@ -26,20 +26,20 @@ Chrono without overwriting their own conventions.
 
 ## Project SME overlays
 
-Before planning, check for a project-local directory at `.chrono-sme/plan/`.
+Before planning, check for a project-local directory at `.chrono/sme-overlays/`.
 
-- First inspect `.chrono-sme/` recursively for user-defined SME overlay files.
+- First inspect `.chrono/sme-overlays/` recursively for user-defined SME overlay files.
 - Treat only `*.md` files other than scaffold `README.md` files as real SME overlays.
-- If `.chrono-sme/` is missing, or it contains no real SME overlay files yet:
-   - Tell the user that they should add SME files under `.chrono-sme/` for optimal planning performance.
+- If `.chrono/sme-overlays/` is missing, or it contains no real SME overlay files yet:
+   - Tell the user that they should add SME files under `.chrono/sme-overlays/` for optimal planning performance.
    - Ask whether to continue planning with these exact options:
       - `No, cancel planning and I'll add SME files (recommended).`
       - `Yes, continue anyways.`
    - If the user chooses to cancel, STOP immediately.
    - If the user chooses to continue, proceed without SME overlays.
-- If `.chrono-sme/` contains real SME overlays, continue with normal overlay loading.
+- If `.chrono/sme-overlays/` contains real SME overlays, continue with normal overlay loading.
 
-- If it exists, read every `*.md` file in alphabetical order.
+- If it exists, read every `*.md` file from `.chrono/sme-overlays/general/` and `.chrono/sme-overlays/plan/` in alphabetical order.
 - Treat those files as additive planning overlays for this specific project or organization.
 - Use them to shape discovery, clarifying questions, specification content, plan decisions, and
    task breakdowns.
@@ -142,13 +142,14 @@ Your workflow is a STRICT SEQUENTIAL PROCESS. Follow each phase completely befor
 
 MANDATORY steps:
 1. Locate and read the change request file: `.agents/changes/<JIRA>-<short-description>/00.jira-request.txt`
-2. Check whether `.chrono-sme/` contains any real SME overlay files, ignoring scaffold `README.md`
+2. Check whether `.chrono/sme-overlays/` contains any real SME overlay files, ignoring scaffold `README.md`
    files. If it does not, inform the user that adding SME files will improve results and prompt
    them with these options before continuing:
    - `No, cancel planning and I'll add SME files (recommended).`
    - `Yes, continue anyways.`
    If the user cancels, STOP. If the user continues, proceed without overlays.
-3. Read all project-local planning overlays from `.chrono-sme/plan/*.md` if that directory exists.
+3. Read all applicable project-local planning overlays from `.chrono/sme-overlays/general/*.md`
+   and `.chrono/sme-overlays/plan/*.md` if those directories exist.
 4. **If the request involves UI or front-end design**, apply the UI design rules above before proceeding.
 5. **If the request involves any API work**, note that API design rules will apply during Phase 5 and Phase 6.
 6. Gather comprehensive project context:
@@ -353,7 +354,8 @@ After specification approval:
 2. Follow the plan template below
 3. Convert specification WHAT into technical HOW
 4. Be specific about files, modules, and technical approach
-5. Include any project-local planning overlays from `.chrono-sme/plan/` that materially affect
+5. Include any project-local planning overlays from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/plan/` that materially affect
    design, rollout, testing, or implementation sequencing.
 
 #### Plan template
@@ -409,7 +411,7 @@ After plan approval:
 5. Ensure tasks are modular, resumable, and can be worked on independently
 6. Include a final wrap-up task that generates `04-commit-msg.md` and `05-gitlab-mr.md`
    as specified in the commit message and GitLab MR templates below
-7. If `.chrono-sme/execute/` exists, mention that execution overlays live there in
+7. If `.chrono/sme-overlays/execute/` exists, mention that execution overlays live there in
    `03-tasks-00-READBEFORE.md` so downstream implementation agents can apply the same
    project-local SME during coding and verification.
 

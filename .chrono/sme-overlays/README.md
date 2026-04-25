@@ -5,17 +5,24 @@ Chrono's built-in skills are intentionally generic. Put project-specific subject
 ## Structure
 
 ```text
-.chrono-sme/
-├── plan/
-└── execute/
+.chrono/
+└── sme-overlays/
+	├── general/
+	├── plan/
+	└── execute/
 ```
 
 ## How Chrono uses these files
 
-- `chrono-plan` reads every Markdown file in `.chrono-sme/plan/` before discovery and planning.
+- `chrono-plan` reads every Markdown file in `.chrono/sme-overlays/general/` and
+	`.chrono/sme-overlays/plan/` before discovery and planning.
 - `chrono-plan` ignores scaffold `README.md` files when deciding whether real SME overlays exist.
-- `chrono-execute` reads every Markdown file in `.chrono-sme/execute/` on each loop iteration.
-- In `.chrono-sme/execute/`, files named `shared-*.md` or files with no prefix apply to all execution subagents.
+- `chrono-execute` reads every Markdown file in `.chrono/sme-overlays/general/` and
+	`.chrono/sme-overlays/execute/` on each loop iteration.
+- In `.chrono/sme-overlays/general/`, every Markdown file applies to both `chrono-plan` and
+	`chrono-execute`.
+- In `.chrono/sme-overlays/execute/`, files named `shared-*.md` or files with no prefix apply to
+	all execution subagents.
 - Files named `coder-*.md` apply only to the Coder subagent.
 - Files named `inspector-*.md` apply only to the Task Inspector and Phase Inspector.
 

@@ -1,9 +1,18 @@
 ---
-name: self-improvement
-description: "Capture reusable learnings, errors, and corrections for future GitHub Copilot sessions. Use when a task uncovers a non-obvious fix, the user corrects the agent, a command or tool fails in a meaningful way, a project convention is discovered, or a recurring solution should be promoted into repo instructions or a reusable skill. Review existing learnings before major implementation work."
+name: chrono-self-improvement
+description: "Capture reusable learnings, errors, and corrections as part of the Chrono workflow. Use when a task uncovers a non-obvious fix, the user corrects the agent, a command or tool fails in a meaningful way, a project convention is discovered, or a recurring solution should be promoted into repo instructions or a reusable skill. Review existing learnings before major implementation work."
 ---
 
-# Self-Improvement
+# Chrono Self-Improvement
+
+You are a WORKFLOW IMPROVEMENT AGENT supporting the Chrono planning and execution loop.
+
+Chrono's built-in planning and execution skills are intentionally reusable. This skill captures
+durable lessons discovered while using them so future sessions start with better local context
+instead of rediscovering the same fixes.
+
+Your role is to record reusable knowledge, keep the learning backlog organized, and promote stable
+patterns into durable project guidance.
 
 Capture durable lessons from real work so later GitHub Copilot sessions start with better local context instead of rediscovering the same fixes.
 
@@ -11,12 +20,12 @@ Capture durable lessons from real work so later GitHub Copilot sessions start wi
 
 | Situation | Action |
 |-----------|--------|
-| Command or tool fails in a reusable way | Append an entry to `.learnings/ERRORS.md` |
-| User corrects the agent | Append an entry to `.learnings/LEARNINGS.md` with category `correction` |
-| A project convention or better workflow is discovered | Append an entry to `.learnings/LEARNINGS.md` with category `best_practice` |
-| The user asks for a missing capability | Append an entry to `.learnings/FEATURE_REQUESTS.md` |
+| Command or tool fails in a reusable way | Append an entry to `.chrono/learnings/ERRORS.md` |
+| User corrects the agent | Append an entry to `.chrono/learnings/LEARNINGS.md` with category `correction` |
+| A project convention or better workflow is discovered | Append an entry to `.chrono/learnings/LEARNINGS.md` with category `best_practice` |
+| The user asks for a missing capability | Append an entry to `.chrono/learnings/FEATURE_REQUESTS.md` |
 | A learning should shape future agent behavior | Promote it to `AGENTS.md`, `.github/copilot-instructions.md`, or `/memories/repo` |
-| A resolved learning is broadly reusable | Extract it into a new skill with `node skills/self-improvement/scripts/extract-skill.js <skill-name>` |
+| A resolved learning is broadly reusable | Extract it into a new skill with `node skills/chrono-self-improvement/scripts/extract-skill.js <skill-name>` |
 
 ## What This Skill Optimizes
 
@@ -28,12 +37,13 @@ Use this skill to keep a lightweight feedback loop around actual implementation 
 
 This skill is written for GitHub Copilot workflows in VS Code. It does not assume agent-specific hook systems or shell-only tooling.
 
-## Directory Layout
+## Project-Local Artifacts
 
-Store captured knowledge in a project-local `.learnings/` directory:
+Store captured knowledge in a project-local `.chrono/learnings/` directory:
 
 ```text
-.learnings/
+.chrono/
+  learnings/
   LEARNINGS.md
   ERRORS.md
   FEATURE_REQUESTS.md
@@ -42,14 +52,14 @@ Store captured knowledge in a project-local `.learnings/` directory:
 Create the directory if it does not exist:
 
 ```bash
-mkdir -p .learnings
+mkdir -p .chrono/learnings
 ```
 
 ## Logging Format
 
 ### Learning Entry
 
-Append to `.learnings/LEARNINGS.md`:
+Append to `.chrono/learnings/LEARNINGS.md`:
 
 ```markdown
 ## [LRN-YYYYMMDD-XXX] category
@@ -83,7 +93,7 @@ Specific fix or improvement to make
 
 ### Error Entry
 
-Append to `.learnings/ERRORS.md`:
+Append to `.chrono/learnings/ERRORS.md`:
 
 ```markdown
 ## [ERR-YYYYMMDD-XXX] command_or_tool_name
@@ -119,7 +129,7 @@ If identifiable, what might resolve this
 
 ### Feature Request Entry
 
-Append to `.learnings/FEATURE_REQUESTS.md`:
+Append to `.chrono/learnings/FEATURE_REQUESTS.md`:
 
 ```markdown
 ## [FEAT-YYYYMMDD-XXX] capability_name
@@ -195,7 +205,7 @@ Write promoted rules as short prevention rules, not long incident reports.
 
 If a new issue resembles an existing learning:
 
-1. Search `.learnings/` first.
+1. Search `.chrono/learnings/` first.
 2. Reuse `Pattern-Key` when the issue is the same class of failure.
 3. Add `See Also` links between related entries.
 4. Increase `Recurrence-Count` when the same pattern repeats.
@@ -204,12 +214,12 @@ If a new issue resembles an existing learning:
 Example search:
 
 ```bash
-grep -R "Pattern-Key:\|timeout\|pnpm" .learnings/
+grep -R "Pattern-Key:\|timeout\|pnpm" .chrono/learnings/
 ```
 
 ## Review Workflow
 
-Review `.learnings/` at natural breakpoints:
+Review `.chrono/learnings/` at natural breakpoints:
 
 - Before a major implementation task
 - After resolving a non-obvious bug
@@ -219,9 +229,9 @@ Review `.learnings/` at natural breakpoints:
 Useful checks:
 
 ```bash
-grep -h "Status\*\*: pending" .learnings/*.md | wc -l
-grep -B5 "Priority\*\*: high" .learnings/*.md | grep "^## \["
-grep -l "Area\*\*: backend" .learnings/*.md
+grep -h "Status\*\*: pending" .chrono/learnings/*.md | wc -l
+grep -B5 "Priority\*\*: high" .chrono/learnings/*.md | grep "^## \["
+grep -l "Area\*\*: backend" .chrono/learnings/*.md
 ```
 
 ## Best Practices
@@ -239,7 +249,7 @@ GitHub Copilot does not expose prompt and tool hooks in the same way some other 
 
 Recommended pattern:
 
-1. Review `.learnings/` before major work in a familiar problem area.
+1. Review `.chrono/learnings/` before major work in a familiar problem area.
 2. After a meaningful fix or correction, append or update an entry.
 3. Promote durable rules into `AGENTS.md`, `.github/copilot-instructions.md`, or `/memories/repo`.
 4. When a resolved learning is broadly reusable, extract it into a skill scaffold.
@@ -257,7 +267,7 @@ Optional helper scripts:
 ### Reminder Helper
 
 ```bash
-node skills/self-improvement/scripts/activator.js
+node skills/chrono-self-improvement/scripts/activator.js
 ```
 
 ### Error Detection Helper
@@ -265,20 +275,20 @@ node skills/self-improvement/scripts/activator.js
 Pipe output into the detector:
 
 ```bash
-pnpm test 2>&1 | node skills/self-improvement/scripts/error-detector.js
+pnpm test 2>&1 | node skills/chrono-self-improvement/scripts/error-detector.js
 ```
 
 Or pass explicit text:
 
 ```bash
-node skills/self-improvement/scripts/error-detector.js --text "npm ERR! missing script: build"
+node skills/chrono-self-improvement/scripts/error-detector.js --text "npm ERR! missing script: build"
 ```
 
 ### Skill Extraction Helper
 
 ```bash
-node skills/self-improvement/scripts/extract-skill.js docker-fixes --dry-run
-node skills/self-improvement/scripts/extract-skill.js docker-fixes
+node skills/chrono-self-improvement/scripts/extract-skill.js docker-fixes --dry-run
+node skills/chrono-self-improvement/scripts/extract-skill.js docker-fixes
 ```
 
 ## Skill Extraction Criteria

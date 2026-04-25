@@ -55,7 +55,7 @@ function readStdin() {
 
 function printHelp() {
   process.stdout.write("Usage: node error-detector.js [--text <message>]\n\n");
-  process.stdout.write("Detect likely command or tool failures and emit a self-improvement reminder.\n");
+  process.stdout.write("Detect likely command or tool failures and emit a Chrono self-improvement reminder.\n");
 }
 
 function containsError(text) {
@@ -78,8 +78,8 @@ async function main() {
   }
 
   process.stdout.write("<error-detected>\n");
-  process.stdout.write("A likely command or tool failure was detected. Consider logging it to .learnings/ERRORS.md if it was non-obvious, reusable, or likely to recur.\n");
-  process.stdout.write("Use the self-improvement format: [ERR-YYYYMMDD-XXX]\n");
+  process.stdout.write("A likely command or tool failure was detected. Consider logging it to .chrono/learnings/ERRORS.md if it was non-obvious, reusable, or likely to recur.\n");
+  process.stdout.write("Use the chrono-self-improvement format: [ERR-YYYYMMDD-XXX]\n");
   process.stdout.write("</error-detected>\n");
 }
 

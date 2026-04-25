@@ -25,17 +25,23 @@ Chrono without overwriting their own conventions.
 
 ## Project SME overlays
 
-Check for a project-local directory at `.chrono-sme/execute/`.
+Check for a project-local directory at `.chrono/sme-overlays/`.
 
-- Read all `*.md` files in alphabetical order on every loop iteration if the directory exists.
-- Treat files with no prefix as shared guidance for all execution subagents.
-- Treat `shared-*.md` files as shared guidance for all execution subagents.
-- Treat `coder-*.md` files as guidance for the Coder subagent only.
-- Treat `inspector-*.md` files as guidance for the Task Inspector and Phase Inspector only.
+- Read all `*.md` files in alphabetical order from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/` on every loop iteration if those directories exist.
+- Treat files in `.chrono/sme-overlays/general/` as shared guidance whenever `chrono-plan` or
+   `chrono-execute` runs.
+- Treat files with no prefix in `.chrono/sme-overlays/execute/` as shared guidance for all
+   execution subagents.
+- Treat `shared-*.md` files in `.chrono/sme-overlays/execute/` as shared guidance for all
+   execution subagents.
+- Treat `coder-*.md` files in `.chrono/sme-overlays/execute/` as guidance for the Coder subagent only.
+- Treat `inspector-*.md` files in `.chrono/sme-overlays/execute/` as guidance for the Task
+   Inspector and Phase Inspector only.
 - If an overlay conflicts with the user's explicit request, the PRD artifacts, or the actual
    repository state, surface the conflict instead of silently applying the overlay.
 - Never ask users to put these files inside `skills/chrono-execute/`; they belong in the project
-   at `.chrono-sme/execute/` so Chrono upgrades do not overwrite them.
+    at `.chrono/sme-overlays/` so Chrono upgrades do not overwrite them.
 
 ## Orchestration Modes
 
@@ -84,7 +90,8 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST keep looping until all tasks are completed in the progress file.
 - You MUST ensure ALL tasks within a phase are completed before moving to the next phase.
 - You MUST stop once the progress file indicates completion.
-- You MUST apply project-local execution overlays from `.chrono-sme/execute/` when present.
+- You MUST apply project-local execution overlays from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/` when present.
 - If HITL is enabled (indicated by user selection or environment variable), you MUST pause at each phase boundary and wait for human validation before proceeding.
 
 ## Required tool availability
@@ -126,7 +133,8 @@ tracker without the orchestrator or subagent racing those changes.
 Read, in this order:
 1. `PROGRESS.md` (including current phase and phase status)
 2. The titles, phases, and status of tasks in `03-tasks-*`
-3. All applicable project-local execution overlays from `.chrono-sme/execute/*.md`
+3. All applicable project-local execution overlays from `.chrono/sme-overlays/general/*.md`
+   and `.chrono/sme-overlays/execute/*.md`
 4. `01-specification.md` only if you need to re-anchor scope
 5. `02-plan.md` only if you're stuck on architecture decisions
 
@@ -142,8 +150,9 @@ After reading `PROGRESS.md`, check for tasks marked as 🔴 Incomplete:
 Call a subagent with **exactly** the instructions from <CODER_SUBAGENT_INSTRUCTIONS>.
 
 **Pass the current phase to the Coder**: Extract the "Current Phase" field from `PROGRESS.md` and inform the Coder which phase to work on.
-Also pass the contents or file paths of every applicable `.chrono-sme/execute/` overlay file,
-including all shared overlays and any `coder-*.md` overlays.
+Also pass the contents or file paths of every applicable `.chrono/sme-overlays/general/` overlay
+file and every applicable `.chrono/sme-overlays/execute/` overlay file, including all shared
+overlays and any `coder-*.md` overlays.
 
 **Your role**: You are ONLY orchestrating. You do NOT pick which task the Coder should implement.
 The Coder subagent has full autonomy to:
@@ -162,8 +171,9 @@ You simply delegate to the Coder and trust it to make the right choice within th
 
 After the Coder subagent completes a task and marks it ✅ Completed:
 - Call the Task Inspector subagent with instructions from <TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
-- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
-   any `inspector-*.md` overlays.
+- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
+   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
+   `inspector-*.md` overlays.
 - The Inspector reviews the latest commit and verifies:
   - All acceptance criteria from the task file are met
   - Unit tests have been added and cover the requirements
@@ -188,8 +198,9 @@ After Task Inspector confirms the task (✅ or 🔴):
 
 If the current phase is complete AND HITL mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
-- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
-   any `inspector-*.md` overlays.
+- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
+   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
+   `inspector-*.md` overlays.
 - Phase Inspector reviews all commits in the phase and generates a validation report
 - Output the Phase Inspector's report to the human
 - PAUSE and request explicit human approval to proceed to next phase
@@ -202,8 +213,9 @@ If the current phase is complete AND HITL mode is enabled:
 
 If the current phase is complete AND Auto mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
-- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
-   any `inspector-*.md` overlays.
+- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
+   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
+   `inspector-*.md` overlays.
 - Phase Inspector reviews all commits and generates validation report for audit trail
 - Output the Phase Inspector's report (logged for review)
 - Record validation in `PROGRESS.md` with timestamp
@@ -239,7 +251,8 @@ Inputs:
 - Tasks: `03-tasks-*.md`
 - Progress tracker: `PROGRESS.md`
 - Current phase: (provided by orchestrator)
-- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `coder-*.md` overlays
+- Applicable SME overlays from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `coder-*.md` overlays
 
 You must:
 1. Read `PROGRESS.md` to understand what is done, what remains, and confirm the **current phase**.
@@ -279,7 +292,9 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
-- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `inspector-*.md` overlays
+- Applicable SME overlays from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
+   overlays
 
 You must:
 1. Read the task file fully to understand:
@@ -377,7 +392,9 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
-- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `inspector-*.md` overlays
+- Applicable SME overlays from `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
+   overlays
 
 You must:
 1. Read all applicable SME overlays passed by the orchestrator before validating the phase.

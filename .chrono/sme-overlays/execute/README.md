@@ -18,5 +18,7 @@ Examples:
 - `coder-testing.md` for required smoke tests or fixture conventions
 - `inspector-accessibility.md` for review gates that inspectors must enforce
 
-These files are read by `chrono-execute` from `.chrono-sme/execute/` on each loop iteration so
-updates can take effect without modifying the installed skill.
+These files are read by `chrono-execute` from `.chrono/sme-overlays/execute/` on each loop
+iteration so updates can take effect without modifying the installed skill. Chrono also loads any
+cross-cutting guidance from `.chrono/sme-overlays/general/` before these execution-specific
+overlays.

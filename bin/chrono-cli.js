@@ -28,11 +28,11 @@ const { spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const skillsSourceDir = path.join(repoRoot, 'skills');
-const smeSourceDir = path.join(repoRoot, '.chrono-sme');
+const chronoSourceDir = path.join(repoRoot, '.chrono');
 const originalCwd = process.cwd();
 const homeDir = os.homedir();
 const installTargetDir = path.join(homeDir, '.agents', 'skills');
-const localSmeTargetDir = path.join(originalCwd, '.chrono-sme');
+const localChronoTargetDir = path.join(originalCwd, '.chrono');
 const isWindows = process.platform === 'win32';
 const npmCommand = isWindows ? 'npm.cmd' : 'npm';
 const npxCommand = isWindows ? 'npx.cmd' : 'npx';
@@ -73,22 +73,22 @@ function copyChronoSkills(dryRun) {
 }
 
 function copyProjectSmeScaffold(dryRun) {
-  if (!fs.existsSync(smeSourceDir)) {
-    throw new Error(`Missing SME scaffold directory: ${smeSourceDir}`);
+  if (!fs.existsSync(chronoSourceDir)) {
+    throw new Error(`Missing Chrono scaffold directory: ${chronoSourceDir}`);
   }
 
-  if (fs.existsSync(localSmeTargetDir)) {
-    console.log(`Skipping .chrono-sme scaffold; destination already exists at ${localSmeTargetDir}`);
+  if (fs.existsSync(localChronoTargetDir)) {
+    console.log(`Skipping .chrono scaffold; destination already exists at ${localChronoTargetDir}`);
     return;
   }
 
   if (dryRun) {
-    console.log(`[dry-run] Copy .chrono-sme scaffold to ${localSmeTargetDir}`);
+    console.log(`[dry-run] Copy .chrono scaffold to ${localChronoTargetDir}`);
     return;
   }
 
-  fs.cpSync(smeSourceDir, localSmeTargetDir, { recursive: true, force: false });
-  console.log(`Copied .chrono-sme scaffold to ${localSmeTargetDir}`);
+  fs.cpSync(chronoSourceDir, localChronoTargetDir, { recursive: true, force: false });
+  console.log(`Copied .chrono scaffold to ${localChronoTargetDir}`);
 }
 
 function runCommand(command, args, options = {}) {
@@ -148,10 +148,12 @@ function runInstallCommands(dryRun) {
 
 function printNextSteps() {
   console.log('\nNext steps:');
-  console.log('1. Put planning and architecture expertise in .chrono-sme/plan/*.md.');
-  console.log('2. Put implementation, testing, and verification expertise in .chrono-sme/execute/*.md.');
-  console.log('3. Keep those folders outside the installed skills directory so they survive Chrono upgrades.');
-  console.log('4. See README.md for the overlay file conventions and examples.');
+  console.log('1. Put cross-cutting SME guidance in .chrono/sme-overlays/general/*.md.');
+  console.log('2. Put planning and architecture expertise in .chrono/sme-overlays/plan/*.md.');
+  console.log('3. Put implementation, testing, and verification expertise in .chrono/sme-overlays/execute/*.md.');
+  console.log('4. Review and keep learnings under .chrono/learnings/.');
+  console.log('5. Keep those folders outside the installed skills directory so they survive Chrono upgrades.');
+  console.log('6. See README.md for the overlay file conventions and examples.');
 }
 
 function init() {
@@ -180,7 +182,7 @@ function init() {
     logStep('Copy Chrono skills');
     copyChronoSkills(dryRun);
 
-    logStep('Seed project-local SME scaffold');
+    logStep('Seed project-local Chrono scaffold');
     copyProjectSmeScaffold(dryRun);
 
     process.chdir(homeDir);

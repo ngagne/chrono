@@ -11,8 +11,9 @@ Examples:
 - `compliance.md` for privacy, audit, or regulatory constraints
 - `api-standards.md` for contract conventions that must appear in specs and plans
 
-These files are read by `chrono-plan` from `.chrono-sme/plan/` before it asks clarifying questions
-or writes planning artifacts.
+These files are read by `chrono-plan` from `.chrono/sme-overlays/plan/` before it asks
+clarifying questions or writes planning artifacts. Chrono also loads any cross-cutting guidance
+from `.chrono/sme-overlays/general/` before these plan-specific overlays.
 
 Suggested style:
 

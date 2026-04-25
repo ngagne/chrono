@@ -128,11 +128,13 @@ Chrono also ships the following open-source community skills that its core skill
 - **`find-docs`** (`.github/skills/find-docs/`) — fetches current library documentation via `ctx7`
 - **`playwright-cli`** (`.github/skills/playwright-cli/`) — browser automation for UI task verification
 - **`ui-ux-pro-max`** (`.github/prompts/ui-ux-pro-max/`) — design system generation prompt
-- **`self-improvement`** (`.github/skills/self-improvement/`) — captures learnings, errors, and corrections to enable continuous improvement (adapted from [self-improvement](https://github.com/pskoett/pskoett-ai-skills/blob/main/skills/self-improvement/SKILL.md))
+- **`chrono-self-improvement`** (`skills/chrono-self-improvement/`) — captures learnings, errors, and corrections to enable continuous improvement across the full Chrono workflow (adapted from [self-improvement](https://github.com/pskoett/pskoett-ai-skills/blob/main/skills/self-improvement/SKILL.md))
 
 `chrono-plan` invokes `find-docs` and `ui-ux-pro-max` when relevant.
 `chrono-execute` invokes `playwright-cli` for any task that involves UI or front-end work.
-`self-improvement` is a general-purpose skill that can be invoked by any agent when it encounters an error or learns something new. It captures that learning in a structured format so the agent can refer back to it later and improve over time.
+`chrono-self-improvement` is a general-purpose Chrono workflow skill that can be invoked by any
+agent when it encounters an error or learns something new. It captures that learning in a
+structured format so the agent can refer back to it later and improve over time.
 
 ## Subagent Personas
 
@@ -152,29 +154,41 @@ without overwriting your project's expertise.
 Use this repository-local structure:
 
 ```text
-.chrono-sme/
-├── README.md
-├── plan/
-│   ├── architecture.md
-│   └── compliance.md
-└── execute/
-    ├── shared-release.md
-    ├── coder-testing.md
-    └── inspector-accessibility.md
+.chrono/
+├── learnings/
+│   ├── LEARNINGS.md
+│   ├── ERRORS.md
+│   └── FEATURE_REQUESTS.md
+└── sme-overlays/
+   ├── README.md
+   ├── general/
+   │   └── terminology.md
+   ├── plan/
+   │   ├── architecture.md
+   │   └── compliance.md
+   └── execute/
+      ├── shared-release.md
+      ├── coder-testing.md
+      └── inspector-accessibility.md
 ```
 
 How Chrono uses these overlays:
 
-- `chrono-plan` reads every Markdown file in `.chrono-sme/plan/` before discovery and uses that
-   guidance when it asks questions, writes the specification, builds the plan, and creates tasks.
+- `chrono-plan` reads every Markdown file in `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/plan/` before discovery and uses that guidance when it asks questions,
+   writes the specification, builds the plan, and creates tasks.
 - Before planning, `chrono-plan` ignores scaffold `README.md` files and checks whether any real
-  SME overlays exist under `.chrono-sme/`. If none exist, it warns the user and asks whether to
-  continue planning without SME guidance.
-- `chrono-execute` reads every Markdown file in `.chrono-sme/execute/` on each loop iteration.
-- In `.chrono-sme/execute/`, files without a prefix and files named `shared-*.md` apply to all
-   execution subagents.
+   SME overlays exist under `.chrono/sme-overlays/`. If none exist, it warns the user and asks
+   whether to continue planning without SME guidance.
+- `chrono-execute` reads every Markdown file in `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/` on each loop iteration.
+- In `.chrono/sme-overlays/general/`, every Markdown file applies to both `chrono-plan` and
+   `chrono-execute`.
+- In `.chrono/sme-overlays/execute/`, files without a prefix and files named `shared-*.md` apply
+   to all execution subagents.
 - Files named `coder-*.md` apply only to the Coder subagent.
 - Files named `inspector-*.md` apply only to the Task Inspector and Phase Inspector.
+- `chrono-self-improvement` stores reusable learnings in `.chrono/learnings/`.
 
 Typical things to put in overlays:
 
@@ -188,7 +202,7 @@ Practical guidance:
 - Keep overlays concise, directive, and specific to the project.
 - Prefer one topic per file so teams can update rules independently.
 - Treat overlays as additive constraints on top of the core Chrono workflow, not as replacements for it.
-- If you upgrade Chrono, keep your `.chrono-sme/` directory unchanged and replace only the installed skills.
+- If you upgrade Chrono, keep your `.chrono/` directory unchanged and replace only the installed skills.
 
 ## Installation
 
@@ -201,11 +215,11 @@ npx -y chrono-cli@latest init
 The installer will:
 
 - Install the Chrono core skills globally
-- Seed a project-local `.chrono-sme/` scaffold into the directory where you ran the installer if it does not already exist
+- Seed a project-local `.chrono/` scaffold into the directory where you ran the installer if it does not already exist
 - Install `@playwright/cli` and related skills globally
 - Install `ui-ux-pro-max` skills globally
 - Install `ctx7` skills globally and initialize
-- Prompt you to add optional project-local SME overlays under `.chrono-sme/plan/` and `.chrono-sme/execute/`
+- Prompt you to add optional project-local SME overlays under `.chrono/sme-overlays/general/`, `.chrono/sme-overlays/plan/`, and `.chrono/sme-overlays/execute/`
 
 ## Quick Start
 
@@ -254,7 +268,7 @@ The installer will:
 ```mermaid
 graph TD
    A[Change Request] --> B{Plan SME overlays present?}
-   B -->|Yes| C[chrono-plan: Load .chrono-sme/plan/*.md]
+   B -->|Yes| C[chrono-plan: Load .chrono/sme-overlays/general/*.md + plan/*.md]
    B -->|No| D[Warn and confirm planning without overlays]
    C --> E[chrono-plan: Discovery]
    D --> E
@@ -263,10 +277,10 @@ graph TD
    G --> H{Review Spec}
    H -->|Approved| I[chrono-plan: Plan + Task files]
    H -->|Revise| F
-   I --> J[chrono-execute: Load artifacts + .chrono-sme/execute/*.md]
+   I --> J[chrono-execute: Load artifacts + .chrono/sme-overlays/general/*.md + execute/*.md]
    J --> K[chrono-execute: Coder Subagent]
    K --> L{Error or reusable learning?}
-   L -->|Yes| M[self-improvement: capture in .learnings/]
+   L -->|Yes| M[chrono-self-improvement: capture in .chrono/learnings/]
    L -->|No| N[chrono-execute: Task Inspector]
    M --> N
    N -->|✅ Complete| O{More Tasks in phase?}

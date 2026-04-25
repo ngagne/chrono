@@ -4,8 +4,8 @@ This skill is intended for GitHub Copilot in VS Code. Copilot does not currently
 
 ## Recommended Setup
 
-1. Keep the skill in your workspace under `skills/self-improvement/`.
-2. Create `.learnings/` in the project root when the first reusable issue appears.
+1. Keep the skill in your workspace under `skills/chrono-self-improvement/`.
+2. Create `.chrono/learnings/` in the project root when the first reusable issue appears.
 3. Add concise promotion targets to `AGENTS.md` or `.github/copilot-instructions.md` once a learning becomes durable.
 4. Run the helper scripts with `node` so the same commands work on macOS and Windows.
 
@@ -14,7 +14,7 @@ This skill is intended for GitHub Copilot in VS Code. Copilot does not currently
 Use the reminder helper when you want a quick prompt to decide whether the current task produced a reusable learning:
 
 ```bash
-node skills/self-improvement/scripts/activator.js
+node skills/chrono-self-improvement/scripts/activator.js
 ```
 
 This prints a short checklist you can paste into notes, a task description, or an editor task.
@@ -26,13 +26,13 @@ The error detector is a small CLI utility, not a background hook. Feed it comman
 ### Pipe command output
 
 ```bash
-pnpm lint 2>&1 | node skills/self-improvement/scripts/error-detector.js
+pnpm lint 2>&1 | node skills/chrono-self-improvement/scripts/error-detector.js
 ```
 
 ### Pass explicit text
 
 ```bash
-node skills/self-improvement/scripts/error-detector.js --text "TypeError: Cannot read properties of undefined"
+node skills/chrono-self-improvement/scripts/error-detector.js --text "TypeError: Cannot read properties of undefined"
 ```
 
 ### Use environment variables
@@ -40,7 +40,7 @@ node skills/self-improvement/scripts/error-detector.js --text "TypeError: Cannot
 The detector will also read `COPILOT_TOOL_OUTPUT` if it is present:
 
 ```bash
-COPILOT_TOOL_OUTPUT="npm ERR! missing script: test" node skills/self-improvement/scripts/error-detector.js
+COPILOT_TOOL_OUTPUT="npm ERR! missing script: test" node skills/chrono-self-improvement/scripts/error-detector.js
 ```
 
 ## Skill Extraction Flow
@@ -48,15 +48,15 @@ COPILOT_TOOL_OUTPUT="npm ERR! missing script: test" node skills/self-improvement
 Generate a new skill scaffold from a resolved learning:
 
 ```bash
-node skills/self-improvement/scripts/extract-skill.js test-fixture-pattern --dry-run
-node skills/self-improvement/scripts/extract-skill.js test-fixture-pattern
+node skills/chrono-self-improvement/scripts/extract-skill.js test-fixture-pattern --dry-run
+node skills/chrono-self-improvement/scripts/extract-skill.js test-fixture-pattern
 ```
 
 Optional flags:
 
 ```bash
-node skills/self-improvement/scripts/extract-skill.js test-fixture-pattern --output-dir ./skills
-node skills/self-improvement/scripts/extract-skill.js --help
+node skills/chrono-self-improvement/scripts/extract-skill.js test-fixture-pattern --output-dir ./skills
+node skills/chrono-self-improvement/scripts/extract-skill.js --help
 ```
 
 ## Suggested Copilot Conventions
@@ -72,9 +72,9 @@ Use these conventions when promoting learnings for future sessions:
 Check the helper scripts directly:
 
 ```bash
-node skills/self-improvement/scripts/activator.js
-node skills/self-improvement/scripts/error-detector.js --text "command not found"
-node skills/self-improvement/scripts/extract-skill.js sample-skill --dry-run
+node skills/chrono-self-improvement/scripts/activator.js
+node skills/chrono-self-improvement/scripts/error-detector.js --text "command not found"
+node skills/chrono-self-improvement/scripts/extract-skill.js sample-skill --dry-run
 ```
 
 Expected behavior:
@@ -99,4 +99,4 @@ Choose a different skill name or remove the existing target directory before re-
 
 ### Windows path issues
 
-Prefer `node skills/self-improvement/scripts/<script>.js` over relying on executable bits or shell-specific path behavior.
+Prefer `node skills/chrono-self-improvement/scripts/<script>.js` over relying on executable bits or shell-specific path behavior.

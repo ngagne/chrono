@@ -73,7 +73,7 @@ description: "[TODO: Add a concise description of what this skill does and when 
 
 This skill was extracted from a learning entry.
 - Learning ID: [TODO: Add original learning ID]
-- Original File: .learnings/LEARNINGS.md
+- Original File: .chrono/learnings/LEARNINGS.md
 `;
 }
 
@@ -162,8 +162,8 @@ function main() {
   process.stdout.write("  4. Add scripts/ if the skill needs executable helpers\n");
   process.stdout.write("  5. Update the original learning entry with promoted_to_skill and Skill-Path\n");
 
-  if (!fs.existsSync(path.join(process.cwd(), ".learnings"))) {
-    logWarn("No .learnings directory found in the current working directory.");
+  if (!fs.existsSync(path.join(process.cwd(), ".chrono", "learnings"))) {
+    logWarn("No .chrono/learnings directory found in the current working directory.");
   }
 }
 
