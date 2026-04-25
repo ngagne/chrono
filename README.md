@@ -1,37 +1,35 @@
-# Craftsman
+# Chrono
 
-**Plan Mode and "Ralph" implementation loop Workflows for GitHub Copilot**
+**Plan and implement software changes using structured GitHub Copilot skills**
 
-Craftsman is a collection of 2 specialized AI agent modes that transform
-how you plan, implement, and verify complex software changes in VS Code.
+Chrono provides two GitHub Copilot skills for software engineers that transform how you plan and
+implement complex software changes in VS Code.
 
-Instead of endless manual prompting, Craftsman provides structured workflows
+Instead of endless manual prompting, Chrono provides structured workflows
 that ensure quality through systematic planning, autonomous implementation,
 and continuous validation.
 
-## Features
+## Skills
 
-- Simple 2 files, 2 agent modes: Plan Mode / Ralph Loop.
-- **Plan Mode**: An interview-based planning agent that produces reviewable specifications
+- **`chrono-plan`**: An interview-based planning skill that produces reviewable specifications
   and actionable task breakdowns.
-- **Ralph Loop Mode**: An orchestration agent that autonomously implements tasks
-  with continuous verification
-- **Structured Artifacts**: Clear, traceable files for specifications, plans, and tasks
-- Integration with external issue trackers via JIRA-ID naming convention
-- Optional Human-in-the-loop (HITL) phase review for stakeholder review at critical points during
-  implementation.
-## Why Craftsman?
+- **`chrono-execute`**: An orchestration skill that autonomously implements tasks
+  with continuous verification (the "Ralph Loop").
 
-Craftsman is an **experiment in structured agent orchestration**, exploring three key questions:
+Both skills are in `.github/skills/` and work together end-to-end.
+
+## Why Chrono?
+
+Chrono is an **experiment in structured agent orchestration**, exploring three key questions:
 
 ### 1. Can models reliably follow complex workflows?
 
-Using **XML-like tags and structured prompts**, Craftsman tests whether LLMs can execute multi-phase processes (discovery → interview → specification → planning → implementation → verification) without losing track of their role or breaking the workflow.
+Using **structured prompts and explicit phase boundaries**, Chrono tests whether LLMs can execute multi-phase processes (discovery → interview → specification → planning → implementation → verification) without losing track of their role or breaking the workflow.
 
 ### 2. Can we integrate external issue trackers seamlessly?
 
 Real teams use JIRA, Linear, or GitHub Issues.
-Craftsman uses the **JIRA-ID naming convention** (`.agents/changes/JIRA-123-description/`)
+Chrono uses the **JIRA-ID naming convention** (`.agents/changes/JIRA-123-description/`)
 to maintain traceability between planning artifacts and external project management systems.
 
 ### 3. Can we implement using a Ralph Wiggum loop directly in GitHub Copilot?
@@ -39,7 +37,7 @@ to maintain traceability between planning artifacts and external project managem
 Inspired by the **["Ralph Wiggum" pattern](https://www.humanlayer.dev/blog/brief-history-of-ralph)**,
 a simple loop that repeatedly delegates to subagents until all tasks are complete.
 
-Craftsman adapts this approach for **VS Code GitHub Copilot**.
+Chrono adapts this approach for **VS Code GitHub Copilot**.
 
 Instead of:
 
@@ -47,37 +45,37 @@ Instead of:
 - Manually tracking which tasks are done
 - Hoping the agent remembers earlier context
 
-**Ralph Loop** does:
+**`chrono-execute`** does:
 
 - Read the progress file
 - Delegate next task to a fresh Coder subagent
-- Verify the result with Inspector subagent
+- Verify the result with an Inspector subagent
 - Update progress
 - Repeat until complete
 
 This is **linear, stateful, and autonomous** — you start the loop and step away.
 
-## Core Agent Modes
+## Core Skills
 
-Craftsman currently provides two complementary agent modes:
+Chrono provides two complementary skills:
 
-### � Plan Mode
+### 📋 `chrono-plan`
 
-**A research and planning agent that produces reviewable specifications and actionable task breakdowns.**
+**A research and planning skill that produces reviewable specifications and actionable task breakdowns.**
 
-Plan Mode systematically explores your change request through:
+`chrono-plan` systematically explores your change request through:
 
 1. **Deep context discovery** — scans your project structure, documentation, and existing patterns
 2. **Structured interviews** — asks 10-15 clarifying questions, then 5-10 technical follow-ups
 3. **Specification generation** — produces a reviewable spec with requirements, constraints, and success criteria
 4. **Implementation planning** — creates detailed architectural plan with dependencies
-5. **Task breakdown** — generates independent, actionable task files for implementation
+5. **Task breakdown** — generates independent, actionable task files for `chrono-execute`
 
 **Output artifacts** (in `.agents/changes/<JIRA>-<description>/`):
 
 ```text
 .agents/changes/JIRA-123-feature-name/
-├── 00.request.md              # Initial change request
+├── 00.jira-request.txt        # Initial change request
 ├── 01-specification.md        # Reviewable design decisions and requirements
 ├── 02-plan.md                 # Technical architecture and dependencies
 ├── 03-tasks-00-READBEFORE.md  # Critical context for all tasks
@@ -87,11 +85,11 @@ Plan Mode systematically explores your change request through:
 └── 03-tasks-04-docs.md        # Phase 2, Task 4: Documentation
 ```
 
-**Key principle**: Plan Mode **never writes implementation code**. It focuses exclusively on thorough planning so implementation agents have clear, complete instructions.
+**Key principle**: `chrono-plan` **never writes implementation code**. It focuses exclusively on thorough planning so implementation agents have clear, complete instructions.
 
 **Files Description**:
 
-- `00.request.md`: The initial human request, often a poorly written JIRA ticket.
+- `00.jira-request.txt`: The initial human request, often a poorly written JIRA ticket.
 - `01-specification.md`: The main output of Plan Mode, containing reviewable design and architectural choices without technical details or code.
 - `01-specification.jira.txt`: A JIRA-friendly version of the specification
   for easy putting issues in review in JIRA.
@@ -106,127 +104,132 @@ Plan Mode systematically explores your change request through:
   Tasks are grouped into phases, but each task file is self-contained
   to reduce cognitive overload and token waste.
 
-### � Ralph Loop Mode
+### ⚙️ `chrono-execute`
 
-**An orchestration agent that autonomously implements tasks with continuous verification.**
+**An orchestration skill that autonomously implements tasks with continuous verification (the "Ralph Loop").**
 
-Ralph Loop manages the complete implementation lifecycle:
+`chrono-execute` manages the complete implementation lifecycle:
 
-1. **Reads planning artifacts** — loads spec, plan, and task files from Plan Mode
+1. **Reads planning artifacts** — loads spec, plan, and task files from `chrono-plan`
 2. **Delegates to Coder subagent** — selects next task, triggers implementation subagent
 3. **Runs Task Inspector** — verifies each completed task meets acceptance criteria
 4. **Manages phase transitions** — validates phase completion before proceeding
 5. **Human-in-the-Loop (HITL)** — optional pause points for stakeholder review
-6. **Progress tracking** — maintains PROGRESS.md with task status and validation notes
+6. **Progress tracking** — maintains `PROGRESS.md` with task status and validation notes
 
 **Two operational modes**:
 
 - **Auto Mode** (default) — continuous implementation until all tasks complete
-- **HITL Mode** (Human-in-the-loop) — pauses at phase boundaries for human review. This allows
-  to "steer"
+- **HITL Mode** (Human-in-the-loop) — pauses at phase boundaries for human review
 
-**Verification system**:
+**Three-tier quality assurance**:
 
+- **Preflight checks** — run by the Coder before marking any task complete
 - **Task Inspector** — validates individual task completion after each Coder run
-- **Phase Inspector** — generates comprehensive phase review reports
-- **Retry mechanism** — marks incomplete tasks for high priority rework by a new coder subagent
+- **Phase Inspector** — validates phase completion before advancing
 
-At the end of each coding task AND after each review, a commit message is generated.
-This creates a clear, traceable commit history that links implementation decisions
-back to the original plan and specification.
+At the end of each coding task AND after each review, a commit is generated.
+It is recommended to squash all these commits into a single self-contained commit before merging.
 
-It is higly recommended to squash all these commits into a single,
-self-contained commit before merging to the main branch,
-to avoid polluting the commit history with intermediate implementation steps.
+## Supporting Community Skills
 
-## Personas
+Chrono also ships the following open-source community skills that its core skills leverage.
+These are **not part of this project** — they are included for convenience:
 
-- **Orchestrator**: manages the overall workflow, delegates to subagents, and tracks progress
-  It nevers codes or even verify the actual job, it just tracks the progress and
-  delegates to the right subagent.
+- **`find-docs`** (`.github/skills/find-docs/`) — fetches current library documentation via `ctx7`
+- **`playwright-cli`** (`.github/skills/playwright-cli/`) — browser automation for UI task verification
+- **`ui-ux-pro-max`** (`.github/prompts/ui-ux-pro-max/`) — design system generation prompt
+
+`chrono-plan` invokes `find-docs` and `ui-ux-pro-max` when relevant.
+`chrono-execute` invokes `playwright-cli` for any task that involves UI or front-end work.
+
+## Subagent Personas
+
+`chrono-execute` orchestrates three subagent personas internally:
+
 - **Coder**: implements individual tasks based on task files
 - **Task Inspector**: verifies task completion against acceptance criteria
 - **Phase Inspector**: validates phase completion and generates review reports
 
+The orchestrator never codes itself — it only tracks progress and delegates.
+
 ## Installation
 
-**Current method** (manual):
+Copy the two core skills into your project's `.github/skills/` directory:
 
-1. **Add Craftsman to your workspace**:
+```bash
+cd /path/to/your-project
+mkdir -p .github/skills
 
-   ```bash
-   # Clone or download Craftsman
-   git clone https://github.com/your-org/Craftsman.git ~/Projects/Craftsman
-   ```
+# Core skills (required)
+cp -R ~/Projects/chrono/.github/skills/chrono-plan  .github/skills/
+cp -R ~/Projects/chrono/.github/skills/chrono-execute .github/skills/
 
-   Add the Craftsman folder to your VS Code workspace to make agent definitions available.
+# Optional: community skills leveraged by Chrono
+cp -R ~/Projects/chrono/.github/skills/find-docs    .github/skills/
+cp -R ~/Projects/chrono/.github/skills/playwright-cli .github/skills/
+cp -R ~/Projects/chrono/.github/prompts/ui-ux-pro-max .github/prompts/
+```
 
-2. **Copy agent modes to your project**:
-
-   ```bash
-   cd /path/to/your-project
-   mkdir -p .github/agents
-   cp ~/Projects/Craftsman/.github/agents/*.agent.md .github/agents/
-   ```
+GitHub Copilot will automatically discover skills in `.github/skills/` and make them available in chat.
 
 ## Quick Start
 
 ### Planning a Change
 
-1. Start Copilot Chat and select the Agent **@Craftsman: Plan Mode**
+1. In Copilot Chat, invoke the `chrono-plan` skill:
+   > "Plan this change" or "chrono-plan: add user authentication"
 
-   ![Plan Mode selection screenshot](images/agent-plan-mode.png)
+2. Optionally, create a request file first:
+   ```bash
+   mkdir -p .agents/changes/JIRA-123-my-feature
+   echo "Add OAuth login with GitHub" > .agents/changes/JIRA-123-my-feature/00.jira-request.txt
+   ```
 
-2. Provide your change request (or paste JIRA ticket)
-3. Answer the clarifying questions
-4. Review the generated specification in `.agents/changes/<JIRA-123>-<short-description>/01-specification.md`
-5. Approve plan and task breakdown
+3. Answer the clarifying questions (10–15 in Phase 2, 5–10 in Phase 3)
+4. Review the generated specification in `.agents/changes/JIRA-123-my-feature/01-specification.md`
+5. Approve the plan and task breakdown
 
-### Implementing with Ralph Loop
+### Implementing with `chrono-execute`
 
-1. Start Copilot Chat and select **@Craftsman: Ralph Loop**
-   ![Ralph Loop selection screenshot](images/agent-ralp-mode.png)
-2. By default, the implementation is autonomous without human intervention.
-   You can choose to enable HITL (Human-in-the-Loop) mode to pause at phase boundaries for review.
-3. Provide path to planning artifacts (e.g., `.agents/changes/IDEA-01-refresh-command/`)
+1. In Copilot Chat, invoke the `chrono-execute` skill:
+   > "chrono-execute: implement .agents/changes/JIRA-123-my-feature/"
 
-   ![Ralph Loop Trigger](images/agent-ralph-trigger.png)
+   To enable HITL mode (pauses at phase boundaries for review):
+   > "chrono-execute HITL mode: .agents/changes/JIRA-123-my-feature/"
 
-   ![Ralph Loop Trigger](images/agent-ralph-trigger-hitl.png)
-
-4. Ralph Loop will:
-   - Read spec, plan, and tasks
+2. `chrono-execute` will:
+   - Read spec, plan, and tasks from the folder
    - Delegate implementation to Coder subagents
-   - Verify each task with Task Inspector
-   - Track progress in PROGRESS.md
+   - Verify each task with the Task Inspector
+   - Track progress in `PROGRESS.md`
    - Continue until all tasks complete
 
-**Pausing Ralph Loop**: Create `PAUSE.md` in the planning folder to safely pause the loop for manual task edits.
+**Pausing**: Create `PAUSE.md` in the planning folder to safely pause the loop for manual task edits.
 
-## Concrete advices
+## Concrete Advice
 
-- Start with a small request in markdown (`.agents/changes/JIRA-123-description/00.request.md`)
-- Use a mid-size model like Claude Sonnet 4.5 for the Plan Mode.
+- Start with a small request in `.agents/changes/JIRA-123-description/00.jira-request.txt`
+- Use a mid-size model like Claude Sonnet 4.5 for `chrono-plan`
 - Reserve Opus only when tasks require complex reasoning or multi-phase implementation (20+ tasks)
-- Use Claude Haiku for implementation. But for the moment, you can use Sonnet for the Ralph loop,
-  it will not consume 1 premium token per request (to my experience, it consumes 1 premium request
-  after ~15 taks + reviewers)
+- Use Claude Haiku for implementation. Sonnet for `chrono-execute` consumes roughly 1 premium request
+  per ~15 tasks + reviews based on observed usage
 
 ## Typical End-to-End Workflow
 
 ```mermaid
 graph TD
-    A[Change Request] --> B[Plan Mode: Discovery]
-    B --> C[Plan Mode: Questions]
-    C --> D[Plan Mode: Specification]
+    A[Change Request] --> B[chrono-plan: Discovery]
+    B --> C[chrono-plan: Questions]
+    C --> D[chrono-plan: Specification]
     D --> E{Review Spec}
-    E -->|Approved| F[Plan Mode: Tasks]
+    E -->|Approved| F[chrono-plan: Tasks]
     E -->|Revise| C
-    F --> G[Ralph Loop: Read Artifacts]
-    G --> H[Ralph Loop: Coder Subagent]
-    H --> I[Ralph Loop: Task Inspector]
+    F --> G[chrono-execute: Read Artifacts]
+    G --> H[chrono-execute: Coder Subagent]
+    H --> I[chrono-execute: Task Inspector]
     I -->|✅ Complete| J{More Tasks?}
-    I -->|� Incomplete| H
+    I -->|🔴 Incomplete| H
     J -->|Yes| H
     J -->|No| K{Phase Complete?}
     K -->|Yes, HITL| L[Phase Inspector + Human Review]
@@ -238,17 +241,15 @@ graph TD
     N -->|No| H
 ```
 
----
-
 ## Honest Feedback: Current Limitations
 
-Craftsman is a **production-level proof of concept**.
-It works, i use it daily in my workflow BUT it's not perfect.
+Chrono is a **production-level proof of concept**.
+It works, I use it daily in my workflow — but it's not perfect.
 
-In this section, I humbly provides the real limitations and known issues
+In this section, I humbly document the real limitations and known issues
 of the current implementation.
 
-I would be so grateful if you could try it out and share your feedback,
+I would be grateful if you tried it out and shared your feedback,
 especially if you have suggestions for improvement.
 
 ### Known Issues
@@ -269,12 +270,14 @@ especially if you have suggestions for improvement.
    - ✅ Code quality is high
    - ❌ **But features may not be user-accessible** (especially with UI)
 
-   Despite intensive planning with Claude Opus and no visible gaps in specifications,
+   Despite intensive planning and no visible gaps in specifications,
    implemented features sometimes exist in code but lack integration points, UI bindings,
    or entry points for users to actually use them.
 
-   I would say a human would have caught this gap during implementation,
+   A human would have caught this gap during implementation,
    but the agent still misses it.
+
+---
 
 ## Acknowledgments
 
