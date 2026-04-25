@@ -7,9 +7,11 @@ const { spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const skillsSourceDir = path.join(repoRoot, 'skills');
+const smeSourceDir = path.join(repoRoot, '.chrono-sme');
 const originalCwd = process.cwd();
 const homeDir = os.homedir();
 const installTargetDir = path.join(homeDir, '.agents', 'skills');
+const localSmeTargetDir = path.join(originalCwd, '.chrono-sme');
 const isWindows = process.platform === 'win32';
 const npmCommand = isWindows ? 'npm.cmd' : 'npm';
 const npxCommand = isWindows ? 'npx.cmd' : 'npx';
@@ -47,6 +49,25 @@ function copyChronoSkills(dryRun) {
     fs.cpSync(sourcePath, destinationPath, { recursive: true, force: true });
     console.log(`Copied ${entry.name} to ${destinationPath}`);
   }
+}
+
+function copyProjectSmeScaffold(dryRun) {
+  if (!fs.existsSync(smeSourceDir)) {
+    throw new Error(`Missing SME scaffold directory: ${smeSourceDir}`);
+  }
+
+  if (fs.existsSync(localSmeTargetDir)) {
+    console.log(`Skipping .chrono-sme scaffold; destination already exists at ${localSmeTargetDir}`);
+    return;
+  }
+
+  if (dryRun) {
+    console.log(`[dry-run] Copy .chrono-sme scaffold to ${localSmeTargetDir}`);
+    return;
+  }
+
+  fs.cpSync(smeSourceDir, localSmeTargetDir, { recursive: true, force: false });
+  console.log(`Copied .chrono-sme scaffold to ${localSmeTargetDir}`);
 }
 
 function runCommand(command, args, options = {}) {
@@ -104,6 +125,14 @@ function runInstallCommands(dryRun) {
   }
 }
 
+function printNextSteps() {
+  console.log('\nNext steps:');
+  console.log('1. Put planning and architecture expertise in .chrono-sme/plan/*.md.');
+  console.log('2. Put implementation, testing, and verification expertise in .chrono-sme/execute/*.md.');
+  console.log('3. Keep those folders outside the installed skills directory so they survive Chrono upgrades.');
+  console.log('4. See README.md for the overlay file conventions and examples.');
+}
+
 function init() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
@@ -130,6 +159,9 @@ function init() {
     logStep('Copy Chrono skills');
     copyChronoSkills(dryRun);
 
+    logStep('Seed project-local SME scaffold');
+    copyProjectSmeScaffold(dryRun);
+
     process.chdir(homeDir);
     runInstallCommands(dryRun);
   } catch (error) {
@@ -144,6 +176,7 @@ function init() {
   }
 
   console.log('\nChrono installation completed successfully.');
+  printNextSteps();
 }
 
 init();

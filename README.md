@@ -16,7 +16,12 @@ and continuous validation.
 - **`chrono-execute`**: An orchestration skill that autonomously implements tasks
   with continuous verification (the "Ralph Loop").
 
-Both skills are in `.github/skills/` and work together end-to-end.
+In this repository, the source skill files live under `skills/` and the installer copies them to
+`~/.agents/skills/` for use in GitHub Copilot.
+
+Chrono's built-in skills are deliberately foundational. Teams are expected to layer
+project-specific subject matter expertise on top so the same workflow can fit different domains,
+compliance regimes, testing rules, and release constraints.
 
 ## Why Chrono?
 
@@ -118,15 +123,16 @@ It is recommended to squash all these commits into a single self-contained commi
 
 ## Supporting Community Skills
 
-Chrono also ships the following open-source community skills that its core skills leverage.
-These are **not part of this project** — they are included for convenience:
+Chrono also ships the following open-source community skills that its core skills leverage:
 
 - **`find-docs`** (`.github/skills/find-docs/`) — fetches current library documentation via `ctx7`
 - **`playwright-cli`** (`.github/skills/playwright-cli/`) — browser automation for UI task verification
 - **`ui-ux-pro-max`** (`.github/prompts/ui-ux-pro-max/`) — design system generation prompt
+- **`self-improvement`** (`.github/skills/self-improvement/`) — captures learnings, errors, and corrections to enable continuous improvement (adapted from [self-improvement](https://github.com/pskoett/pskoett-ai-skills/blob/main/skills/self-improvement/SKILL.md))
 
 `chrono-plan` invokes `find-docs` and `ui-ux-pro-max` when relevant.
 `chrono-execute` invokes `playwright-cli` for any task that involves UI or front-end work.
+`self-improvement` is a general-purpose skill that can be invoked by any agent when it encounters an error or learns something new. It captures that learning in a structured format so the agent can refer back to it later and improve over time.
 
 ## Subagent Personas
 
@@ -137,6 +143,52 @@ These are **not part of this project** — they are included for convenience:
 - **Phase Inspector**: validates phase completion and generates review reports
 
 The orchestrator never codes itself — it only tracks progress and delegates.
+
+## Project-Local SME Overlays
+
+Keep team-specific guidance outside the installed skill directories so Chrono can be updated
+without overwriting your project's expertise.
+
+Use this repository-local structure:
+
+```text
+.chrono-sme/
+├── README.md
+├── plan/
+│   ├── architecture.md
+│   └── compliance.md
+└── execute/
+    ├── shared-release.md
+    ├── coder-testing.md
+    └── inspector-accessibility.md
+```
+
+How Chrono uses these overlays:
+
+- `chrono-plan` reads every Markdown file in `.chrono-sme/plan/` before discovery and uses that
+   guidance when it asks questions, writes the specification, builds the plan, and creates tasks.
+- Before planning, `chrono-plan` ignores scaffold `README.md` files and checks whether any real
+  SME overlays exist under `.chrono-sme/`. If none exist, it warns the user and asks whether to
+  continue planning without SME guidance.
+- `chrono-execute` reads every Markdown file in `.chrono-sme/execute/` on each loop iteration.
+- In `.chrono-sme/execute/`, files without a prefix and files named `shared-*.md` apply to all
+   execution subagents.
+- Files named `coder-*.md` apply only to the Coder subagent.
+- Files named `inspector-*.md` apply only to the Task Inspector and Phase Inspector.
+
+Typical things to put in overlays:
+
+- Domain rules the generic skill cannot infer, such as payments, healthcare, infra, or security constraints.
+- Repository-specific architecture rules, rollout requirements, and forbidden implementation patterns.
+- Testing and verification expectations, such as required smoke checks, release evidence, or audit notes.
+- Team review heuristics, such as accessibility gates, migration checklists, or incident-prevention rules.
+
+Practical guidance:
+
+- Keep overlays concise, directive, and specific to the project.
+- Prefer one topic per file so teams can update rules independently.
+- Treat overlays as additive constraints on top of the core Chrono workflow, not as replacements for it.
+- If you upgrade Chrono, keep your `.chrono-sme/` directory unchanged and replace only the installed skills.
 
 ## Installation
 
@@ -149,16 +201,18 @@ npx -y chrono-cli@latest init
 The installer will:
 
 - Install the Chrono core skills globally
+- Seed a project-local `.chrono-sme/` scaffold into the directory where you ran the installer if it does not already exist
 - Install `@playwright/cli` and related skills globally
 - Install `ui-ux-pro-max` skills globally
 - Install `ctx7` skills globally and initialize
+- Prompt you to add optional project-local SME overlays under `.chrono-sme/plan/` and `.chrono-sme/execute/`
 
 ## Quick Start
 
 ### Planning a Change
 
 1. In Copilot Chat, invoke the `chrono-plan` skill:
-   > "Plan this change" or "chrono-plan: add user authentication"
+   > `/chrono-plan add user authentication`
 
 2. Optionally, create a request file first:
    ```bash
@@ -173,10 +227,10 @@ The installer will:
 ### Implementing with `chrono-execute`
 
 1. In Copilot Chat, invoke the `chrono-execute` skill:
-   > "chrono-execute: implement .agents/changes/JIRA-123-my-feature/"
+   > `/chrono-execute implement .agents/changes/JIRA-123-my-feature/`
 
    To enable HITL mode (pauses at phase boundaries for review):
-   > "chrono-execute HITL mode: .agents/changes/JIRA-123-my-feature/"
+   > `/chrono-execute HITL mode .agents/changes/JIRA-123-my-feature/`
 
 2. `chrono-execute` will:
    - Read spec, plan, and tasks from the folder
@@ -199,26 +253,33 @@ The installer will:
 
 ```mermaid
 graph TD
-    A[Change Request] --> B[chrono-plan: Discovery]
-    B --> C[chrono-plan: Questions]
-    C --> D[chrono-plan: Specification]
-    D --> E{Review Spec}
-    E -->|Approved| F[chrono-plan: Tasks]
-    E -->|Revise| C
-    F --> G[chrono-execute: Read Artifacts]
-    G --> H[chrono-execute: Coder Subagent]
-    H --> I[chrono-execute: Task Inspector]
-    I -->|✅ Complete| J{More Tasks?}
-    I -->|🔴 Incomplete| H
-    J -->|Yes| H
-    J -->|No| K{Phase Complete?}
-    K -->|Yes, HITL| L[Phase Inspector + Human Review]
-    K -->|Yes, Auto| M[Phase Inspector]
-    K -->|No| H
-    L --> N{All Phases Done?}
-    M --> N
-    N -->|Yes| O[Implementation Complete]
-    N -->|No| H
+   A[Change Request] --> B{Plan SME overlays present?}
+   B -->|Yes| C[chrono-plan: Load .chrono-sme/plan/*.md]
+   B -->|No| D[Warn and confirm planning without overlays]
+   C --> E[chrono-plan: Discovery]
+   D --> E
+   E --> F[chrono-plan: Questions]
+   F --> G[chrono-plan: Specification]
+   G --> H{Review Spec}
+   H -->|Approved| I[chrono-plan: Plan + Task files]
+   H -->|Revise| F
+   I --> J[chrono-execute: Load artifacts + .chrono-sme/execute/*.md]
+   J --> K[chrono-execute: Coder Subagent]
+   K --> L{Error or reusable learning?}
+   L -->|Yes| M[self-improvement: capture in .learnings/]
+   L -->|No| N[chrono-execute: Task Inspector]
+   M --> N
+   N -->|✅ Complete| O{More Tasks in phase?}
+   N -->|🔴 Incomplete| J
+   O -->|Yes| J
+   O -->|No| P{Phase Complete?}
+   P -->|Yes, HITL| Q[Phase Inspector + Human Review]
+   P -->|Yes, Auto| R[Phase Inspector]
+   P -->|No| J
+   Q --> S{All Phases Done?}
+   R --> S
+   S -->|Yes| T[Implementation complete + durable learnings retained]
+   S -->|No| J
 ```
 
 ## Honest Feedback: Current Limitations

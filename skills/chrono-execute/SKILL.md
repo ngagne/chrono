@@ -18,6 +18,25 @@ done.
 
 Provide the PRD folder path (from Chrono Plan Mode) — tell "HITL mode" to enable human phase review.
 
+Chrono's built-in execution loop is intentionally foundational and broadly reusable.
+Engineering teams are expected to layer project-specific subject matter expertise on top of it.
+That project-specific guidance must live outside the installed skill directory so teams can update
+Chrono without overwriting their own conventions.
+
+## Project SME overlays
+
+Check for a project-local directory at `.chrono-sme/execute/`.
+
+- Read all `*.md` files in alphabetical order on every loop iteration if the directory exists.
+- Treat files with no prefix as shared guidance for all execution subagents.
+- Treat `shared-*.md` files as shared guidance for all execution subagents.
+- Treat `coder-*.md` files as guidance for the Coder subagent only.
+- Treat `inspector-*.md` files as guidance for the Task Inspector and Phase Inspector only.
+- If an overlay conflicts with the user's explicit request, the PRD artifacts, or the actual
+   repository state, surface the conflict instead of silently applying the overlay.
+- Never ask users to put these files inside `skills/chrono-execute/`; they belong in the project
+   at `.chrono-sme/execute/` so Chrono upgrades do not overwrite them.
+
 ## Orchestration Modes
 
 Ralph supports two operational modes:
@@ -65,6 +84,7 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST keep looping until all tasks are completed in the progress file.
 - You MUST ensure ALL tasks within a phase are completed before moving to the next phase.
 - You MUST stop once the progress file indicates completion.
+- You MUST apply project-local execution overlays from `.chrono-sme/execute/` when present.
 - If HITL is enabled (indicated by user selection or environment variable), you MUST pause at each phase boundary and wait for human validation before proceeding.
 
 ## Required tool availability
@@ -106,8 +126,9 @@ tracker without the orchestrator or subagent racing those changes.
 Read, in this order:
 1. `PROGRESS.md` (including current phase and phase status)
 2. The titles, phases, and status of tasks in `03-tasks-*`
-3. `01-specification.md` only if you need to re-anchor scope
-4. `02-plan.md` only if you're stuck on architecture decisions
+3. All applicable project-local execution overlays from `.chrono-sme/execute/*.md`
+4. `01-specification.md` only if you need to re-anchor scope
+5. `02-plan.md` only if you're stuck on architecture decisions
 
 ### Step 3a — Prioritize incomplete tasks
 
@@ -121,6 +142,8 @@ After reading `PROGRESS.md`, check for tasks marked as 🔴 Incomplete:
 Call a subagent with **exactly** the instructions from <CODER_SUBAGENT_INSTRUCTIONS>.
 
 **Pass the current phase to the Coder**: Extract the "Current Phase" field from `PROGRESS.md` and inform the Coder which phase to work on.
+Also pass the contents or file paths of every applicable `.chrono-sme/execute/` overlay file,
+including all shared overlays and any `coder-*.md` overlays.
 
 **Your role**: You are ONLY orchestrating. You do NOT pick which task the Coder should implement.
 The Coder subagent has full autonomy to:
@@ -139,6 +162,8 @@ You simply delegate to the Coder and trust it to make the right choice within th
 
 After the Coder subagent completes a task and marks it ✅ Completed:
 - Call the Task Inspector subagent with instructions from <TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
+- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
+   any `inspector-*.md` overlays.
 - The Inspector reviews the latest commit and verifies:
   - All acceptance criteria from the task file are met
   - Unit tests have been added and cover the requirements
@@ -163,6 +188,8 @@ After Task Inspector confirms the task (✅ or 🔴):
 
 If the current phase is complete AND HITL mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
+- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
+   any `inspector-*.md` overlays.
 - Phase Inspector reviews all commits in the phase and generates a validation report
 - Output the Phase Inspector's report to the human
 - PAUSE and request explicit human approval to proceed to next phase
@@ -175,6 +202,8 @@ If the current phase is complete AND HITL mode is enabled:
 
 If the current phase is complete AND Auto mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
+- Pass every applicable `.chrono-sme/execute/` overlay file, including all shared overlays and
+   any `inspector-*.md` overlays.
 - Phase Inspector reviews all commits and generates validation report for audit trail
 - Output the Phase Inspector's report (logged for review)
 - Record validation in `PROGRESS.md` with timestamp
@@ -210,28 +239,30 @@ Inputs:
 - Tasks: `03-tasks-*.md`
 - Progress tracker: `PROGRESS.md`
 - Current phase: (provided by orchestrator)
+- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `coder-*.md` overlays
 
 You must:
 1. Read `PROGRESS.md` to understand what is done, what remains, and confirm the **current phase**.
-2. **If present**, read `03-tasks-00-READBEFORE.md` for important context about the change request, specification, and critical information you need to know before starting ANY task.
-3. **IMPORTANT**: Check for 🔴 Incomplete tasks first. If any exist in the current phase, pick ONE Incomplete task as your highest priority.
-4. If no Incomplete tasks exist in the current phase, list all remaining Not Started (⬜) tasks and pick ONE you think is the most important next step.
+2. Read all applicable SME overlays passed by the orchestrator before selecting a task.
+3. **If present**, read `03-tasks-00-READBEFORE.md` for important context about the change request, specification, and critical information you need to know before starting ANY task.
+4. **IMPORTANT**: Check for 🔴 Incomplete tasks first. If any exist in the current phase, pick ONE Incomplete task as your highest priority.
+5. If no Incomplete tasks exist in the current phase, list all remaining Not Started (⬜) tasks and pick ONE you think is the most important next step.
    (Focus on tasks in the current phase only—do not jump to next phase tasks.)
    (This is not necessarily the first task in the phase, pick the most important.)
    (**DO NOT pick multiple tasks, one per call**)
-5. Read the full task file. **If the task is marked Incomplete**, read the entire file carefully, especially the top section which contains notes from the Inspector about what was done wrong or what is missing.
-6. Set the task as 🔄 In Progress in the progress tracker.
-7. **If the task involves API changes**, follow <API_DESIGN_RULES>: update the API spec file(s) first, commit the spec, then proceed with implementation.
-8. **Follow TDD** as described in <TDD_RULES>: write failing tests first, then implement to make them pass.
-9. Implement the selected task end-to-end, including tests and documentation required by the task.
-10. **Before marking complete**, run the preflight checks described in <PREFLIGHT> and fix any issues until they pass.
-11. **If the task involves UI or front-end work**, follow <UI_FRONTEND_RULES>: verify in a live browser with `playwright-cli` and write end-to-end tests before marking complete.
-12. Update `PROGRESS.md` to mark the task as ✅ Completed.
-13. If all tasks in the current phase are now completed, update the Phase Status in `PROGRESS.md` to indicate the phase is complete.
-14. **IMPORTANT - Commit strategy**:
+6. Read the full task file. **If the task is marked Incomplete**, read the entire file carefully, especially the top section which contains notes from the Inspector about what was done wrong or what is missing.
+7. Set the task as 🔄 In Progress in the progress tracker.
+8. **If the task involves API changes**, follow <API_DESIGN_RULES>: update the API spec file(s) first, commit the spec, then proceed with implementation.
+9. **Follow TDD** as described in <TDD_RULES>: write failing tests first, then implement to make them pass.
+10. Implement the selected task end-to-end, including tests and documentation required by the task.
+11. **Before marking complete**, run the preflight checks described in <PREFLIGHT> and fix any issues until they pass.
+12. **If the task involves UI or front-end work**, follow <UI_FRONTEND_RULES>: verify in a live browser with `playwright-cli` and write end-to-end tests before marking complete.
+13. Update `PROGRESS.md` to mark the task as ✅ Completed.
+14. If all tasks in the current phase are now completed, update the Phase Status in `PROGRESS.md` to indicate the phase is complete.
+15. **IMPORTANT - Commit strategy**:
     - **If this is a NEW task** (not marked 🔴 Incomplete before): Create a concise conventional commit message focused on user impact.
     - **If this is a REWORK of a 🔴 Incomplete task** (the task had INSPECTOR FEEDBACK): Use `git commit --amend` to amend the previous coder's commit. Update the commit message to indicate the rework: append `(after review)` to the original message or use a message like `<original-type>: <description> (after review: fixed [specific issues])`. This ensures the rework is merged into the previous attempt's commit history.
-15. Once you have finished one task, STOP and return control to the orchestrator.
+16. Once you have finished one task, STOP and return control to the orchestrator.
     You shall NOT attempt implementing multiple tasks in one call.
 </CODER_SUBAGENT_INSTRUCTIONS>
 
@@ -248,6 +279,7 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
+- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `inspector-*.md` overlays
 
 You must:
 1. Read the task file fully to understand:
@@ -256,8 +288,9 @@ You must:
    - What features should be implemented
    - What documentation updates are required
    - **IMPORTANT**: If there is an existing "INSPECTOR FEEDBACK" section, read the entire task file (acceptance criteria and goals should remain visible after the feedback). This is a re-review of a previously incomplete task.
+2. Read all applicable SME overlays passed by the orchestrator before validating the task.
 
-2. **PRIMARY VALIDATION - Preflight Checks** (MANDATORY FIRST STEP):
+3. **PRIMARY VALIDATION - Preflight Checks** (MANDATORY FIRST STEP):
    - Run the preflight validation command specified in <PREFLIGHT>
    - If preflight fails for ANY reason, the task is INCOMPLETE by definition
    - Check console output for errors, warnings, or failures
@@ -265,7 +298,7 @@ You must:
    - Confirm linting, type checking, and build succeed
    - **If preflight fails, STOP here and mark incomplete** - do not proceed to other checks
 
-3. Review the latest git commit with a CRITICAL EYE:
+4. Review the latest git commit with a CRITICAL EYE:
    - **Acceptance criteria**: Are ALL criteria from the task file met? (no partial implementations, no placeholders)
    - **Unit tests**: Were tests ACTUALLY added and are they present in the code?
    - **Test coverage**: Do tests cover the added functionality and all reasonable use cases?
@@ -273,7 +306,7 @@ You must:
    - **Documentation**: Was documentation updated if required by the task?
    - **If re-reviewing a 🔴 Incomplete task**: Verify that ALL issues mentioned in the previous INSPECTOR FEEDBACK have been addressed
 
-4. **CRITICAL THINKING - Go Beyond Acceptance Criteria**:
+5. **CRITICAL THINKING - Go Beyond Acceptance Criteria**:
    Beyond checking the task file's explicit requirements, think critically about whether the implementation actually WORKS:
    - **Functional correctness**: Does the code do what it's supposed to do? Are there obvious logical errors?
    - **Runtime behavior**: Would this code work when executed? Are there syntax errors, type mismatches, or exceptions?
@@ -291,7 +324,7 @@ You must:
    - Incorrect logic that produces wrong results even if tests pass
    - Missing error handling for expected failure scenarios
 
-5. Your findings:
+6. Your findings:
    - **If task is COMPLETE and CORRECT**: Output a brief confirmation (1-2 sentences). The orchestrator will keep it as ✅ Completed.
    - **If task is INCOMPLETE or INCORRECT**: Mark it as 🔴 Incomplete and output a clear, structured report describing:
      - What WAS done correctly (if anything)
@@ -301,11 +334,11 @@ You must:
      - Clear, actionable instructions for the next coding attempt
      - Do NOT suggest fixes—just point out what's wrong and what needs attention
 
-6. Update `PROGRESS.md`:
+7. Update `PROGRESS.md`:
    - If incomplete, set task status to 🔴 Incomplete
    - Add a "Inspection Notes" entry or "Last Inspector Feedback"
 
-7. **If task is incomplete**:
+8. **If task is incomplete**:
    - If an "INSPECTOR FEEDBACK" section already exists (re-review case): **REPLACE it entirely** with a new one
    - If no previous feedback exists (first review): **PREPEND** the new section at the TOP of the task file (before any existing content)
    - Structure the new/updated "INSPECTOR FEEDBACK" section like:
@@ -330,9 +363,9 @@ You must:
    3. Ensure: [test coverage requirement not met]
    ```
 
-8. Commit your updates to `PROGRESS.md` and task file with message: `inspection: mark task XX as incomplete - [brief reason]` or `inspection: confirm task XX complete`.
+9. Commit your updates to `PROGRESS.md` and task file with message: `inspection: mark task XX as incomplete - [brief reason]` or `inspection: confirm task XX complete`.
 
-9. Return control to the orchestrator.
+10. Return control to the orchestrator.
 </TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
 
 <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
@@ -344,42 +377,45 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
+- Applicable SME overlays from `.chrono-sme/execute/`: shared overlays and `inspector-*.md` overlays
 
 You must:
-1. Identify all tasks in the current phase that are marked ✅ Completed.
+1. Read all applicable SME overlays passed by the orchestrator before validating the phase.
 
-2. Review the cumulative changes across all phase commits to verify:
+2. Identify all tasks in the current phase that are marked ✅ Completed.
+
+3. Review the cumulative changes across all phase commits to verify:
    - No gaps exist in feature coverage (features from plan are actually implemented)
    - Phase-level acceptance criteria are met
    - Integration between tasks works correctly
    - No unintended side effects or broken dependencies
    - Preflight checks pass for the entire phase
 
-3. For each task, verify:
+4. For each task, verify:
    - Task file acceptance criteria are satisfied
    - Unit tests are present and meaningful
    - Code quality is acceptable (no TODOs, dead code, etc.)
 
-4. Generate a Concise Phase Validation Report, output directly in the chat, including:
+5. Generate a Concise Phase Validation Report, output directly in the chat, including:
    - Phase name and number
    - List of all completed tasks with brief status
    - Summary of what the phase delivered (from specification)
    - Any gaps, issues, or concerns discovered
    - Recommendation: READY FOR NEXT PHASE or INCOMPLETE
 
-5. Update `PROGRESS.md`:
+6. Update `PROGRESS.md`:
    - Add entry to "Phase Validation" table with your assessment
    - If READY, note that it awaits human approval (if HITL) or is approved (if Auto)
    - If issues found, mark affected tasks as 🔴 Incomplete with details
 
-6. Output the Phase Validation Report to the orchestrator:
+7. Output the Phase Validation Report to the orchestrator:
    - If HITL is enabled: orchestrator will show this to human for approval
    - If Auto: orchestrator logs this for audit trail
 
-7. If issues were found and tasks reset to Incomplete, commit with:
+8. If issues were found and tasks reset to Incomplete, commit with:
    `phase-inspection: phase N assessment - [brief summary]`
 
-8. Return the validation report to the orchestrator.
+9. Return the validation report to the orchestrator.
 </PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
 
 ## Progress File Template

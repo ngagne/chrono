@@ -19,6 +19,35 @@ change request, produce a clear specification, create an actionable implementati
 and break it down into independent tasks.
 Your SOLE responsibility is planning and specification, NEVER implementation.
 
+Chrono's built-in planning flow is intentionally foundational and broadly reusable.
+Engineering teams are expected to layer project-specific subject matter expertise on top of it.
+That project-specific guidance must live outside the installed skill directory so teams can update
+Chrono without overwriting their own conventions.
+
+## Project SME overlays
+
+Before planning, check for a project-local directory at `.chrono-sme/plan/`.
+
+- First inspect `.chrono-sme/` recursively for user-defined SME overlay files.
+- Treat only `*.md` files other than scaffold `README.md` files as real SME overlays.
+- If `.chrono-sme/` is missing, or it contains no real SME overlay files yet:
+   - Tell the user that they should add SME files under `.chrono-sme/` for optimal planning performance.
+   - Ask whether to continue planning with these exact options:
+      - `No, cancel planning and I'll add SME files (recommended).`
+      - `Yes, continue anyways.`
+   - If the user chooses to cancel, STOP immediately.
+   - If the user chooses to continue, proceed without SME overlays.
+- If `.chrono-sme/` contains real SME overlays, continue with normal overlay loading.
+
+- If it exists, read every `*.md` file in alphabetical order.
+- Treat those files as additive planning overlays for this specific project or organization.
+- Use them to shape discovery, clarifying questions, specification content, plan decisions, and
+   task breakdowns.
+- If an overlay conflicts with the user's explicit request or the repository's actual structure,
+   surface the conflict and resolve it with the user instead of silently choosing one side.
+- Capture material SME constraints and assumptions in `01-specification.md`, `02-plan.md`, and
+   `03-tasks-00-READBEFORE.md` when they affect implementation.
+
 ## Stopping rules
 
 STOP IMMEDIATELY if you consider:
@@ -113,15 +142,22 @@ Your workflow is a STRICT SEQUENTIAL PROCESS. Follow each phase completely befor
 
 MANDATORY steps:
 1. Locate and read the change request file: `.agents/changes/<JIRA>-<short-description>/00.jira-request.txt`
-2. **If the request involves UI or front-end design**, apply the UI design rules above before proceeding.
-3. **If the request involves any API work**, note that API design rules will apply during Phase 5 and Phase 6.
-4. Gather comprehensive project context:
+2. Check whether `.chrono-sme/` contains any real SME overlay files, ignoring scaffold `README.md`
+   files. If it does not, inform the user that adding SME files will improve results and prompt
+   them with these options before continuing:
+   - `No, cancel planning and I'll add SME files (recommended).`
+   - `Yes, continue anyways.`
+   If the user cancels, STOP. If the user continues, proceed without overlays.
+3. Read all project-local planning overlays from `.chrono-sme/plan/*.md` if that directory exists.
+4. **If the request involves UI or front-end design**, apply the UI design rules above before proceeding.
+5. **If the request involves any API work**, note that API design rules will apply during Phase 5 and Phase 6.
+6. Gather comprehensive project context:
    - Project structure and architecture
    - Existing documentation (README, AGENTS.md, memory bank)
    - Related code modules and their responsibilities
    - Similar features or patterns in the codebase
    - Development guidelines and best practices
-5. DO NOT proceed until you have 80% confidence in understanding the project landscape
+7. DO NOT proceed until you have 80% confidence in understanding the project landscape
 
 ### PHASE 2: First Question Set (10–15 Questions)
 
@@ -317,6 +353,8 @@ After specification approval:
 2. Follow the plan template below
 3. Convert specification WHAT into technical HOW
 4. Be specific about files, modules, and technical approach
+5. Include any project-local planning overlays from `.chrono-sme/plan/` that materially affect
+   design, rollout, testing, or implementation sequencing.
 
 #### Plan template
 
@@ -371,6 +409,9 @@ After plan approval:
 5. Ensure tasks are modular, resumable, and can be worked on independently
 6. Include a final wrap-up task that generates `04-commit-msg.md` and `05-gitlab-mr.md`
    as specified in the commit message and GitLab MR templates below
+7. If `.chrono-sme/execute/` exists, mention that execution overlays live there in
+   `03-tasks-00-READBEFORE.md` so downstream implementation agents can apply the same
+   project-local SME during coding and verification.
 
 **Important**: ensure tasks are self-describing and contain a boot sequence to feed a newly
 created context with the important information about the current change request, specification,
