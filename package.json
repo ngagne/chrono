@@ -1,0 +1,24 @@
+{
+  "name": "chrono-cli",
+  "version": "1.0.0",
+  "description": "Plan and implement software changes using structured GitHub Copilot skills",
+  "main": "index.js",
+  "bin": {
+    "chrono-cli": "bin/chrono-cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ngagne/chrono.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ngagne/chrono/issues"
+  },
+  "homepage": "https://github.com/ngagne/chrono#readme"
+}

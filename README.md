@@ -20,40 +20,25 @@ Both skills are in `.github/skills/` and work together end-to-end.
 
 ## Why Chrono?
 
-Chrono is an **experiment in structured agent orchestration**, exploring three key questions:
+Chrono gives GitHub Copilot a **repeatable workflow for real software delivery**.
 
-### 1. Can models reliably follow complex workflows?
+Instead of relying on long ad hoc prompts and fragile chat memory, Chrono breaks work into explicit phases with durable artifacts: request, specification, plan, task files, progress tracking, and verification.
 
-Using **structured prompts and explicit phase boundaries**, Chrono tests whether LLMs can execute multi-phase processes (discovery → interview → specification → planning → implementation → verification) without losing track of their role or breaking the workflow.
+That structure creates three practical advantages:
 
-### 2. Can we integrate external issue trackers seamlessly?
+### 1. Clear planning before code
 
-Real teams use JIRA, Linear, or GitHub Issues.
-Chrono uses the **JIRA-ID naming convention** (`.agents/changes/JIRA-123-description/`)
-to maintain traceability between planning artifacts and external project management systems.
+`chrono-plan` turns a rough request into a concrete specification and technical plan before implementation begins. That reduces ambiguity, forces important decisions early, and gives humans something reviewable before code starts landing.
 
-### 3. Can we implement using a Ralph Wiggum loop directly in GitHub Copilot?
+### 2. Execution that stays on track
 
-Inspired by the **["Ralph Wiggum" pattern](https://www.humanlayer.dev/blog/brief-history-of-ralph)**,
-a simple loop that repeatedly delegates to subagents until all tasks are complete.
+`chrono-execute` runs implementation as a controlled loop: pick the next task, delegate it, verify the result, record progress, and continue. The workflow is explicit, stateful, and resumable, so progress does not depend on one chat thread staying coherent forever.
 
-Chrono adapts this approach for **VS Code GitHub Copilot**.
+### 3. Traceability from request to delivery
 
-Instead of:
+Chrono organizes work in a predictable folder structure such as `.agents/changes/JIRA-123-description/`, making it easy to connect the original request, the design decisions, the implementation tasks, and the final progress record. That makes review, handoff, and recovery much easier than prompt-only workflows.
 
-- Writing new prompts for each implementation step
-- Manually tracking which tasks are done
-- Hoping the agent remembers earlier context
-
-**`chrono-execute`** does:
-
-- Read the progress file
-- Delegate next task to a fresh Coder subagent
-- Verify the result with an Inspector subagent
-- Update progress
-- Repeat until complete
-
-This is **linear, stateful, and autonomous** — you start the loop and step away.
+Inspired by the **["Ralph Wiggum" pattern](https://www.humanlayer.dev/blog/brief-history-of-ralph)**, Chrono adapts that delegation loop for **VS Code GitHub Copilot** and adds the planning, progress management, and validation layers needed for larger changes.
 
 ## Core Skills
 
@@ -155,23 +140,18 @@ The orchestrator never codes itself — it only tracks progress and delegates.
 
 ## Installation
 
-Copy the two core skills into your project's `.github/skills/` directory:
+Run the installer:
 
 ```bash
-cd /path/to/your-project
-mkdir -p .github/skills
-
-# Core skills (required)
-cp -R ~/Projects/chrono/.github/skills/chrono-plan  .github/skills/
-cp -R ~/Projects/chrono/.github/skills/chrono-execute .github/skills/
-
-# Optional: community skills leveraged by Chrono
-cp -R ~/Projects/chrono/.github/skills/find-docs    .github/skills/
-cp -R ~/Projects/chrono/.github/skills/playwright-cli .github/skills/
-cp -R ~/Projects/chrono/.github/prompts/ui-ux-pro-max .github/prompts/
+npx -y chrono-cli@latest init
 ```
 
-GitHub Copilot will automatically discover skills in `.github/skills/` and make them available in chat.
+The installer will:
+
+- Install the Chrono core skills globally
+- Install `@playwright/cli` and related skills globally
+- Install `ui-ux-pro-max` skills globally
+- Install `ctx7` skills globally and initialize
 
 ## Quick Start
 
