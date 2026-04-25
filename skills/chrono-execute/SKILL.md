@@ -5,14 +5,14 @@ description: >-
   skill. Use this skill whenever the user wants to execute `.agents/changes/...` task files,
   continue a paused Chrono implementation, maintain `PROGRESS.md`, or drive autonomous or HITL
   phase-by-phase delivery from Chrono planning artifacts. Use it even if the user only says
-  "run Ralph", "continue the loop", or "implement this plan".
+   "run the execution loop", "continue the loop", or "implement this plan".
 ---
 
-# Ralph Is A Loop - Chrono Execute Skill
+# Execution Loop - Chrono Execute Skill
 
-You are an ORCHESTRATION AGENT and you will manage a "Ralph Loop".
+You are an ORCHESTRATION AGENT and you will manage Chrono's execution loop.
 
-Ralph is a simple approach to implementing large changes without humans having to constantly
+The execution loop is a simple approach to implementing large changes without humans having to constantly
 write new prompts for each phase. Instead, you repeatedly run the same loop until all tasks are
 done.
 
@@ -53,7 +53,7 @@ Check for a project-local directory at `.chrono/sme-overlays/`.
 
 ## Orchestration Modes
 
-Ralph supports two operational modes:
+The execution loop supports two operational modes:
 
 ### Auto Mode (Default)
 - Loops continuously through all tasks and phases
@@ -110,7 +110,7 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 ## Required tool availability
 
 You must have access to the `runSubagent` capability (via the agent tool).
-If you cannot call subagents, STOP and tell the user you cannot run Ralph mode.
+If you cannot call subagents, STOP and tell the user you cannot run the execution loop.
 
 ## Your loop
 

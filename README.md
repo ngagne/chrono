@@ -14,7 +14,7 @@ and continuous validation.
 - **`chrono-plan`**: An interview-based planning skill that produces reviewable specifications
   and actionable task breakdowns.
 - **`chrono-execute`**: An orchestration skill that autonomously implements tasks
-  with continuous verification (the "Ralph Loop").
+   with continuous verification (the execution loop).
 
 In this repository, the source skill files live under `skills/` and the installer copies them to
 `~/.agents/skills/` for use in GitHub Copilot.
@@ -43,7 +43,7 @@ That structure creates three practical advantages:
 
 Chrono organizes work in a predictable folder structure such as `.agents/changes/JIRA-123-description/`, making it easy to connect the original request, the design decisions, the implementation tasks, and the final progress record. That makes review, handoff, and recovery much easier than prompt-only workflows.
 
-Inspired by the **["Ralph Wiggum" pattern](https://www.humanlayer.dev/blog/brief-history-of-ralph)**, Chrono adapts that delegation loop for **VS Code GitHub Copilot** and adds the planning, progress management, and validation layers needed for larger changes.
+Inspired by the **[delegation loop pattern](https://www.humanlayer.dev/blog/brief-history-of-ralph)**, Chrono adapts that delegation loop for **VS Code GitHub Copilot** and adds the planning, progress management, and validation layers needed for larger changes.
 
 ## Core Skills
 
@@ -96,7 +96,7 @@ Chrono provides two complementary skills:
 
 ### ⚙️ `chrono-execute`
 
-**An orchestration skill that autonomously implements tasks with continuous verification (the "Ralph Loop").**
+**An orchestration skill that autonomously implements tasks with continuous verification (the execution loop).**
 
 `chrono-execute` manages the complete implementation lifecycle:
 
@@ -344,7 +344,7 @@ especially if you have suggestions for improvement.
 
 ## Acknowledgments
 
-Inspired by the "Ralph Wiggum" loop concept and refined through experimentation with GitHub Copilot's Agent Mode system.
+Inspired by the delegation loop concept and refined through experimentation with GitHub Copilot's Agent Mode system.
 
 **Read more**:
 
