@@ -87,6 +87,7 @@ Expected files (names follow Plan Mode defaults):
 - `02-plan.md`
 - `03-tasks-*` (files)
 - `PROGRESS.md`
+- `KNOWN_ISSUES.md` (create if missing; used for unresolved findings after the inspection cap)
 
 If the folder contains equivalent artifacts but with different names, adapt pragmatically.
 
@@ -98,6 +99,10 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST keep looping until all tasks are completed in the progress file.
 - You MUST ensure ALL tasks within a phase are completed before moving to the next phase.
 - You MUST stop once the progress file indicates completion.
+- You MUST run adversarial task inspection with 1-2 inspector subagents after each completed task.
+- You MUST use distinct models for parallel inspectors: `GPT-5.4` and `Claude Sonnet`.
+- You MUST cap adversarial inspection at 3 rounds per task; after round 3, log unresolved findings to
+   `KNOWN_ISSUES.md` and allow the task to remain ✅ Completed.
 - You MUST apply project-local execution overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/` when present.
 - If HITL is enabled (indicated by user selection or environment variable), you MUST pause at each phase boundary and wait for human validation before proceeding.
@@ -136,15 +141,22 @@ tracker without the orchestrator or subagent racing those changes.
   - Populate it with the current task list inferred from `03-tasks-*`.
   - Add a change-log line: "Progress file created".
 
+### Step 2a — Ensure `KNOWN_ISSUES.md` exists
+
+- If `KNOWN_ISSUES.md` does not exist in the PRD folder:
+   - Create it with a top-level heading `# Known Issues`.
+   - Use it to capture unresolved findings that remain after the maximum adversarial inspection rounds.
+
 ### Step 3 — Read state (every iteration)
 
 Read, in this order:
 1. `PROGRESS.md` (including current phase and phase status)
 2. The titles, phases, and status of tasks in `03-tasks-*`
-3. All applicable project-local execution overlays from `.chrono/sme-overlays/general/*.md`
+3. `KNOWN_ISSUES.md`
+4. All applicable project-local execution overlays from `.chrono/sme-overlays/general/*.md`
    and `.chrono/sme-overlays/execute/*.md`
-4. `01-specification.md` only if you need to re-anchor scope
-5. `02-plan.md` only if you're stuck on architecture decisions
+5. `01-specification.md` only if you need to re-anchor scope
+6. `02-plan.md` only if you're stuck on architecture decisions
 
 ### Step 3a — Prioritize incomplete tasks
 
@@ -175,30 +187,54 @@ The Coder subagent has full autonomy to:
 
 You simply delegate to the Coder and trust it to make the right choice within the current phase.
 
-### Step 5 — Run Task Inspector (after each task completion)
+### Step 5 — Run Adversarial Task Inspectors (after each task completion)
 
 After the Coder subagent completes a task and marks it ✅ Completed:
-- Call the Task Inspector subagent with instructions from <TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
+- Decide inspection depth based on task size and risk:
+   - Use 1 inspector for small, low-risk, well-contained tasks.
+   - Use 2 inspectors for larger, multi-file, user-facing, API-affecting, ambiguous, or otherwise high-risk tasks.
+- Spawn each inspector as a separate subagent.
+- When using 2 inspectors, run them in parallel and use different models:
+   - Inspector A: `GPT-5.4`
+   - Inspector B: `Claude Sonnet`
+- When using 1 inspector, default to `GPT-5.4` unless there is a clear reason to prefer `Claude Sonnet`.
 - Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
-   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
-   `inspector-*.md` overlays.
-- The Inspector reviews the latest commit and verifies:
-  - All acceptance criteria from the task file are met
-  - Unit tests have been added and cover the requirements
-  - Preflight checks pass
-  - Implementation is complete, not partial
-- The Inspector needs to output a concise report indicating its judgment on the tasks completion.
-- The Inspector will EITHER:
-  - Confirm the task is complete (✅ stays as-is)
-  - Mark the task as 🔴 Incomplete with detailed notes about what's wrong/missing
-- If marked incomplete, the notes are prepended to the task file for the next Coder iteration
+    `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
+    `inspector-*.md` overlays.
+- Pass the current adversarial round number (maximum 3) to each inspector.
+- Each inspector reviews independently and returns a structured report only. Inspectors do NOT edit files,
+   update `PROGRESS.md`, modify task files, or create commits.
 
-### Step 6 — Check for phase completion (MANDATORY after each Task Inspector run)
+### Step 5a — Consolidate adversarial findings (MANDATORY)
 
-After Task Inspector confirms the task (✅ or 🔴):
+After all inspector subagents for the round return:
+- Merge the findings into a single consolidated inspection result.
+- If NO inspector reports any findings:
+   - Keep the task as ✅ Completed.
+   - Update `PROGRESS.md` with a concise inspection pass note.
+   - Add a change-log entry for the inspection pass.
+   - Commit the progress update with `inspection: confirm task XX complete`.
+- If ANY inspector reports findings AND the task has remaining adversarial rounds:
+   - Mark the task as 🔴 Incomplete in `PROGRESS.md`.
+   - Replace or prepend the `INSPECTOR FEEDBACK` block in the task file with the consolidated findings.
+   - Add an inspection note that includes the current round, for example `Round 2/3 - rework required`.
+   - Add a change-log entry summarizing the failed adversarial round.
+   - Commit the progress/task-file update with `inspection: mark task XX incomplete - [brief reason]`.
+   - Return to Step 7 so the next loop iteration sends the task back to the Coder.
+- If ANY inspector reports findings AND this is round 3/3:
+   - Do NOT mark the task incomplete again.
+   - Keep the task as ✅ Completed.
+   - Append the unresolved findings to `KNOWN_ISSUES.md` with the task id, phase, date, and a concise summary.
+   - Update `PROGRESS.md` so the task's inspector note references the known-issues entry.
+   - Add a change-log entry noting that the task completed with logged known issues.
+   - Commit the state update with `inspection: log known issues for task XX after round 3`.
+
+### Step 6 — Check for phase completion (MANDATORY after adversarial inspection consolidation)
+
+After Step 5a finishes:
 - Re-read `PROGRESS.md`
 - Count all tasks in the current phase
-- Count how many are marked ✅ Completed (verified by Inspector)
+- Count how many are marked ✅ Completed (verified by task inspection)
 - If ALL tasks in current phase are ✅: Phase is complete → proceed to Step 6a or Step 6b
 - If ANY task is NOT ✅ (including 🔴 or ⬜): Phase is NOT complete → proceed to Step 7
 
@@ -238,7 +274,7 @@ Continue until `PROGRESS.md` shows all tasks as ✅ Completed.
 
 When complete:
 - Output a concise success message
-- Mention where the artifacts live and that all tasks are completed
+- Mention where the artifacts live, that all tasks are completed, and include the total known-issues count from `KNOWN_ISSUES.md`
 
 ## Adjusting PRDs Mid-Flight
 
@@ -291,6 +327,8 @@ You must:
 You are a SKEPTICAL code reviewer and quality assurance specialist.
 Assume the Coder is WRONG until proven otherwise.
 
+You are one inspector in an ADVERSARIAL review round. Your job is to attack the implementation from your own angle, independently of the other inspector(s). Do not aim for consensus. Aim to find issues the other reviewer might miss.
+
 Your job is to verify that a task marked as completed is actually complete and correct.
 You do NOT trust the coding agent's assessment.
 
@@ -300,6 +338,8 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
+- Adversarial round number: 1, 2, or 3
+- Inspector model identity: provided by orchestrator (`GPT-5.4` or `Claude Sonnet`)
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
    overlays
@@ -347,9 +387,15 @@ You must:
    - Incorrect logic that produces wrong results even if tests pass
    - Missing error handling for expected failure scenarios
 
-6. Your findings:
+6. **Adversarial reviewer stance**:
+   - Be intentionally skeptical and look for failure modes, regressions, and blind spots.
+   - Favor concrete evidence over speculation.
+   - If the task is broad, choose the most failure-prone angle and push hard on it.
+   - Do not water down your findings because another inspector may also be reviewing the task.
+
+7. Your findings:
    - **If task is COMPLETE and CORRECT**: Output a brief confirmation (1-2 sentences). The orchestrator will keep it as ✅ Completed.
-   - **If task is INCOMPLETE or INCORRECT**: Mark it as 🔴 Incomplete and output a clear, structured report describing:
+   - **If task is INCOMPLETE or INCORRECT**: Output a clear, structured report describing:
      - What WAS done correctly (if anything)
      - What is MISSING (specific features, test coverage, documentation, etc.)
      - What is WRONG (incorrect implementation, bugs, design issues, etc.)
@@ -357,38 +403,30 @@ You must:
      - Clear, actionable instructions for the next coding attempt
      - Do NOT suggest fixes—just point out what's wrong and what needs attention
 
-7. Update `PROGRESS.md`:
-   - If incomplete, set task status to 🔴 Incomplete
-   - Add a "Inspection Notes" entry or "Last Inspector Feedback"
-
-8. **If task is incomplete**:
-   - If an "INSPECTOR FEEDBACK" section already exists (re-review case): **REPLACE it entirely** with a new one
-   - If no previous feedback exists (first review): **PREPEND** the new section at the TOP of the task file (before any existing content)
-   - Structure the new/updated "INSPECTOR FEEDBACK" section like:
+8. Return your result in this structure so the orchestrator can consolidate multiple inspectors:
    ```
-   ## INSPECTOR FEEDBACK (Latest)
+   Inspection Round: <1|2|3>
+   Inspector Model: <GPT-5.4|Claude Sonnet>
+   Verdict: <PASS|FINDINGS>
 
-   **Status**: Incomplete - Requires rework
+   What Was Done:
+   - ...
 
-   **What Was Done**:
-   - [brief summary of what worked]
+   What is Missing:
+   - ...
 
-   **What is Missing**:
-   - [specific missing features/test coverage/docs]
+   What is Wrong:
+   - [file:line - issue]
 
-   **What is Wrong**:
-   - [file.ts:line - description of bug/issue]
-   - [feature X - incorrect behavior]
-
-   **Next Steps for Coder**:
-   1. Focus on: [primary issue to fix]
-   2. Verify: [specific acceptance criterion not met]
-   3. Ensure: [test coverage requirement not met]
+   Next Steps for Coder:
+   1. ...
    ```
 
-9. Commit your updates to `PROGRESS.md` and task file with message: `inspection: mark task XX as incomplete - [brief reason]` or `inspection: confirm task XX complete`.
+9. Do NOT edit `PROGRESS.md`, task files, or `KNOWN_ISSUES.md`.
 
-10. Return control to the orchestrator.
+10. Do NOT create commits.
+
+11. Return control to the orchestrator.
 </TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
 
 <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
@@ -400,6 +438,7 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
+- `KNOWN_ISSUES.md`
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
    overlays
@@ -425,6 +464,7 @@ You must:
    - Phase name and number
    - List of all completed tasks with brief status
    - Summary of what the phase delivered (from specification)
+   - Known issues carried forward from capped adversarial task inspection, if any
    - Any gaps, issues, or concerns discovered
    - Recommendation: READY FOR NEXT PHASE or INCOMPLETE
 
@@ -485,7 +525,7 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 
 - ⬜ Not Started
 - 🔄 In Progress
-- ✅ Completed (verified by Task Inspector)
+- ✅ Completed (verified by adversarial task inspection)
 - 🔴 Incomplete (Inspector or Phase Reviewer identified gaps/issues)
 - ⏸️ Skipped
 
@@ -498,6 +538,7 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 - **Incomplete**: <N>
 - **In Progress**: <N>
 - **Remaining**: <N>
+- **Known Issues**: <N>
 
 ---
 
@@ -516,12 +557,13 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 |------|------|--------|-------|---------|
 | <YYYY-MM-DD> | - | Progress file created | Ralph Orchestrator | Initial setup |
 | <YYYY-MM-DD> | 01 | Completed | Coder Subagent | Commit: abc123... |
-| <YYYY-MM-DD> | 01 | Inspection Pass | Task Inspector | Verified against acceptance criteria |
+| <YYYY-MM-DD> | 01 | Inspection Pass | Ralph Orchestrator | Consolidated adversarial inspection passed |
+| <YYYY-MM-DD> | 01 | Known issue logged | Ralph Orchestrator | Logged to `KNOWN_ISSUES.md` after adversarial round 3 |
 ```
 
 ### Key Points for Task File Structure
 
-When a task is marked as 🔴 Incomplete by the Task Inspector, the Inspector will prepend a structured feedback section at the TOP of the task file:
+When a task is marked as 🔴 Incomplete after adversarial inspection, the orchestrator will prepend or replace a structured feedback section at the TOP of the task file:
 
 ```markdown
 ## INSPECTOR FEEDBACK (Latest)
@@ -566,7 +608,7 @@ API responses consumed by a browser, etc.):
 4. A UI task is NOT complete unless the feature works without console errors in a live browser session.
 5. Playwright end-to-end test files must be committed alongside the implementation code.
 
-The Task Inspector MUST verify that browser-level tests exist and pass for any UI task.
+The adversarial task inspectors MUST verify that browser-level tests exist and pass for any UI task.
 </UI_FRONTEND_RULES>
 
 ## TDD Rules
@@ -581,7 +623,7 @@ All implementation work must follow a Test-Driven Development approach:
    still passes.
 
 A task that adds features without first writing failing tests is INCOMPLETE by definition.
-The Task Inspector MUST verify that tests were written before (or alongside, in commits) the
+The adversarial task inspectors MUST verify that tests were written before (or alongside, in commits) the
 implementation code, and that they meaningfully cover the new behavior.
 </TDD_RULES>
 
@@ -596,7 +638,7 @@ When any task involves creating or modifying an API (REST, GraphQL, AsyncAPI):
    - GraphQL APIs → type definition files (e.g., `schema.graphql`)
    - Event-driven APIs → AsyncAPI spec (e.g., `asyncapi.yaml`)
 2. The spec change must be present in the git history **before** any implementation change.
-3. The Task Inspector MUST verify the spec was updated and committed before implementation code.
+3. The adversarial task inspectors MUST verify the spec was updated and committed before implementation code.
 </API_DESIGN_RULES>
 
 ## Preflight
@@ -625,16 +667,19 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 - If preflight fails, task is incomplete by definition
 - Coder fixes issues and retries until preflight passes
 
-### Tier 2: Task Inspector (Per-Task QA)
+### Tier 2: Adversarial Task Inspectors (Per-Task QA)
 - Triggered automatically after each task is marked ✅ Completed
+- Uses 1-2 inspector subagents depending on task size and risk
+- For 2-inspector reviews, runs `GPT-5.4` and `Claude Sonnet` in parallel
 - Verifies:
   - All acceptance criteria from task file are met
   - Unit tests were actually added (not faked)
   - Tests cover the added functionality and use cases
   - No placeholders or TODOs in implementation
   - Preflight checks pass
-- Can mark task as 🔴 Incomplete if issues found
-- Provides detailed feedback to Coder for rework
+- Can send the task back as 🔴 Incomplete if issues found and the round cap has not been reached
+- After 3 adversarial rounds, any remaining findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
+- Provides detailed feedback to Coder for rework until the cap is reached
 
 ### Tier 3: Phase Inspector (Phase-Level QA)
 - Triggered when all tasks in a phase are ✅ Completed by Inspector
@@ -649,13 +694,14 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 
 ### QA Loop Impact
 
-When a task is marked 🔴 Incomplete:
-1. Inspector prepends "INSPECTOR FEEDBACK" section to task file
-2. Feedback is placed at TOP of file for Coder to see immediately
-3. Coder sees incomplete task (🔴 priority) and reads feedback
-4. Coder implements fixes based on feedback
-5. Inspector verifies again
-6. Cycle repeats until task is ✅ verified complete
+When a task receives findings during adversarial inspection:
+1. Orchestrator consolidates the parallel inspector reports
+2. If rounds remain, orchestrator prepends or replaces the `INSPECTOR FEEDBACK` section in the task file
+3. Feedback is placed at TOP of file for Coder to see immediately
+4. Coder sees incomplete task (🔴 priority) and reads feedback
+5. Coder implements fixes based on feedback
+6. Adversarial inspectors verify again, up to a maximum of 3 rounds
+7. If findings still remain after round 3, orchestrator logs them to `KNOWN_ISSUES.md` and keeps the task ✅ complete
 
 This ensures:
 - Incomplete work is caught early, not after phases are done

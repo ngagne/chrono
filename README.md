@@ -102,10 +102,10 @@ Chrono provides two complementary skills:
 
 1. **Reads planning artifacts** — loads spec, plan, and task files from `chrono-plan`
 2. **Delegates to Coder subagent** — selects next task, triggers implementation subagent
-3. **Runs Task Inspector** — verifies each completed task meets acceptance criteria
+3. **Runs adversarial task inspection** — spawns 1-2 reviewer subagents, in parallel when needed, to attack each completed task from different angles
 4. **Manages phase transitions** — validates phase completion before proceeding
 5. **Human-in-the-Loop (HITL)** — optional pause points for stakeholder review
-6. **Progress tracking** — maintains `PROGRESS.md` with task status and validation notes
+6. **Progress tracking** — maintains `PROGRESS.md`, carries forward unresolved findings in `KNOWN_ISSUES.md`, and reports known-issue count at completion
 
 **Two operational modes**:
 
@@ -115,7 +115,7 @@ Chrono provides two complementary skills:
 **Three-tier quality assurance**:
 
 - **Preflight checks** — run by the Coder before marking any task complete
-- **Task Inspector** — validates individual task completion after each Coder run
+- **Adversarial Task Inspectors** — use 1-2 subagents per task, with `GPT-5.4` and `Claude Sonnet` paired on larger tasks, capped at 3 rounds
 - **Phase Inspector** — validates phase completion before advancing
 
 At the end of each coding task AND after each review, a commit is generated.
@@ -141,7 +141,7 @@ structured format so the agent can refer back to it later and improve over time.
 `chrono-execute` orchestrates three subagent personas internally:
 
 - **Coder**: implements individual tasks based on task files
-- **Task Inspector**: verifies task completion against acceptance criteria
+- **Task Inspector(s)**: 1-2 adversarial reviewers that validate task completion against acceptance criteria and runtime quality
 - **Phase Inspector**: validates phase completion and generates review reports
 
 The orchestrator never codes itself — it only tracks progress and delegates.
@@ -256,8 +256,9 @@ The installer will:
 2. `chrono-execute` will:
    - Read spec, plan, and tasks from the folder
    - Delegate implementation to Coder subagents
-   - Verify each task with the Task Inspector
+   - Verify each task with adversarial Task Inspectors
    - Track progress in `PROGRESS.md`
+   - Log any unresolved round-3 findings to `KNOWN_ISSUES.md`
    - Continue until all tasks complete
 
 **Pausing**: Create `PAUSE.md` in the planning folder to safely pause the loop for manual task edits.
@@ -288,7 +289,7 @@ graph TD
    J --> K[chrono-execute: Coder Subagent]
    K --> L{Error or reusable learning?}
    L -->|Yes| M[chrono-self-improvement: capture in .chrono/learnings/]
-   L -->|No| N[chrono-execute: Task Inspector]
+   L -->|No| N[chrono-execute: Adversarial Task Inspectors]
    M --> N
    N -->|✅ Complete| O{More Tasks in phase?}
    N -->|🔴 Incomplete| J
