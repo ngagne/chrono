@@ -1,5 +1,26 @@
 #!/usr/bin/env node
 
+const banner = `
+ ██████╗██╗  ██╗██████╗  ██████╗ ███╗   ██╗ ██████╗ 
+██╔════╝██║  ██║██╔══██╗██╔═══██╗████╗  ██║██╔═══██╗
+██║     ███████║██████╔╝██║   ██║██╔██╗ ██║██║   ██║
+██║     ██╔══██║██╔══██╗██║   ██║██║╚██╗██║██║   ██║
+╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚████║╚██████╔╝
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝`;
+
+// output banner in a horizontal gradient of cyan -> blue -> magenta
+function printBanner() {
+  const colors = ['\x1b[36m', '\x1b[34m', '\x1b[35m'];
+  const reset = '\x1b[0m';
+  const bannerLines = banner.split('\n');
+  for (let i = 0; i < bannerLines.length; i++) {
+    const color = colors[Math.floor((i / bannerLines.length) * colors.length)];
+    console.log(color + bannerLines[i] + reset);
+  }
+}
+
+printBanner();
+
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
