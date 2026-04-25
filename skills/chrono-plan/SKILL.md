@@ -43,6 +43,14 @@ Before planning, check for a project-local directory at `.chrono/sme-overlays/`.
 - Treat those files as additive planning overlays for this specific project or organization.
 - Use them to shape discovery, clarifying questions, specification content, plan decisions, and
    task breakdowns.
+- Use repo instructions such as `AGENTS.md` for guidance that should shape most work in the
+   repository, even when Chrono is not running.
+- Use SME overlays for project-local expertise that should be injected specifically into
+   Chrono's planning flow.
+- Use a separate skill when the behavior is a reusable workflow or capability that should be
+   discovered and invoked independently, rather than always loaded as Chrono context.
+- Do not treat SME overlays as a second generic instructions system; keep broad coding
+   conventions in repo instructions and reserve overlays for Chrono-scoped constraints.
 - If an overlay conflicts with the user's explicit request or the repository's actual structure,
    surface the conflict and resolve it with the user instead of silently choosing one side.
 - Capture material SME constraints and assumptions in `01-specification.md`, `02-plan.md`, and

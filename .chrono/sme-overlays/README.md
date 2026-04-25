@@ -34,3 +34,10 @@ Chrono's built-in skills are intentionally generic. Put project-specific subject
 - Review heuristics or rollout requirements specific to this repository
 
 Keep each file short, explicit, and scoped to one topic when possible.
+
+## When to use overlays vs other mechanisms
+
+- Use repo instructions such as `AGENTS.md` when a rule should apply to most work in the repository, even when Chrono is not involved.
+- Use SME overlays when the rule should shape Chrono's planning artifacts, task generation, coding loop, or inspector behavior for this specific project.
+- Use a skill when you need a reusable workflow or capability that should be triggered or invoked independently, not always loaded as Chrono context.
+- Avoid duplicating generic coding standards in overlays; they are best used for Chrono-specific domain and workflow constraints.

@@ -204,6 +204,13 @@ Practical guidance:
 - Treat overlays as additive constraints on top of the core Chrono workflow, not as replacements for it.
 - If you upgrade Chrono, keep your `.chrono/` directory unchanged and replace only the installed skills.
 
+Choose the right home for guidance:
+
+- Use `AGENTS.md` or repo instructions when the rule should shape most work in the repository, even outside Chrono.
+- Use SME overlays when the rule is project-local expertise that should be injected into `chrono-plan` or `chrono-execute` at the right phase or subagent boundary.
+- Use a skill when the behavior is a reusable workflow or capability that should be discovered and invoked as its own tool, rather than always loaded by Chrono.
+- Do not move generic coding conventions into overlays just because Chrono can read them; overlays are for Chrono-scoped constraints, not a second general instructions system.
+
 ## Installation
 
 Run the installer:

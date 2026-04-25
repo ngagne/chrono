@@ -38,6 +38,14 @@ Check for a project-local directory at `.chrono/sme-overlays/`.
 - Treat `coder-*.md` files in `.chrono/sme-overlays/execute/` as guidance for the Coder subagent only.
 - Treat `inspector-*.md` files in `.chrono/sme-overlays/execute/` as guidance for the Task
    Inspector and Phase Inspector only.
+- Use repo instructions such as `AGENTS.md` for guidance that should shape most work in the
+   repository, even when Chrono is not running.
+- Use SME overlays for project-local expertise that should be injected specifically into
+   Chrono's execution loop or its subagent boundaries.
+- Use a separate skill when the behavior is a reusable workflow or capability that should be
+   discovered and invoked independently, rather than always loaded as Chrono context.
+- Do not treat SME overlays as a second generic instructions system; keep broad coding
+   conventions in repo instructions and reserve overlays for Chrono-scoped constraints.
 - If an overlay conflicts with the user's explicit request, the PRD artifacts, or the actual
    repository state, surface the conflict instead of silently applying the overlay.
 - Never ask users to put these files inside `skills/chrono-execute/`; they belong in the project

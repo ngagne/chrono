@@ -35,7 +35,9 @@ Use this skill to keep a lightweight feedback loop around actual implementation 
 2. Distill recurring learnings into durable project guidance.
 3. Extract broadly useful patterns into reusable skills.
 
-This skill is written for GitHub Copilot workflows in VS Code. It does not assume agent-specific hook systems or shell-only tooling.
+This skill is written for GitHub Copilot workflows in VS Code. GitHub Copilot supports hook
+configuration for Copilot CLI and the Copilot cloud agent, but this skill must still work well
+when used explicitly inside normal implementation flow and when hooks are not configured.
 
 ## Project-Local Artifacts
 
@@ -245,7 +247,9 @@ grep -l "Area\*\*: backend" .chrono/learnings/*.md
 
 ## Copilot Workflow Integration
 
-GitHub Copilot does not expose prompt and tool hooks in the same way some other coding agents do, so use this skill explicitly inside normal implementation flow.
+GitHub Copilot supports configurable hooks for Copilot CLI and the Copilot cloud agent, including
+session lifecycle hooks, prompt submission hooks, tool-use hooks, and error hooks. This skill does
+not require those hooks to be present, but it should fit cleanly into workflows that use them.
 
 Recommended pattern:
 
@@ -253,6 +257,10 @@ Recommended pattern:
 2. After a meaningful fix or correction, append or update an entry.
 3. Promote durable rules into `AGENTS.md`, `.github/copilot-instructions.md`, or `/memories/repo`.
 4. When a resolved learning is broadly reusable, extract it into a skill scaffold.
+
+If a team configures Copilot hooks, use them as optional automation around this workflow, for
+example to log session events, inspect tool failures, or feed tool output into the helper scripts.
+Keep the core learning flow explicit so it still works without hook setup.
 
 Optional helper scripts:
 
