@@ -101,7 +101,7 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST stop once the progress file indicates completion.
 - You MUST run adversarial task inspection with 1-2 inspector subagents after each completed task.
 - You MUST use distinct models for parallel inspectors: `GPT-5.4` and `Claude Sonnet`.
-- You MUST cap adversarial inspection at 3 rounds per task; after round 3, log unresolved findings to
+- You MUST cap adversarial inspection at 2 rounds per task; after round 2, log unresolved findings to
    `KNOWN_ISSUES.md` and allow the task to remain ✅ Completed.
 - You MUST apply project-local execution overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/` when present.
@@ -201,7 +201,7 @@ After the Coder subagent completes a task and marks it ✅ Completed:
 - Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
     `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
     `inspector-*.md` overlays.
-- Pass the current adversarial round number (maximum 3) to each inspector.
+- Pass the current adversarial round number (maximum 2) to each inspector.
 - Each inspector reviews independently and returns a structured report only. Inspectors do NOT edit files,
    update `PROGRESS.md`, modify task files, or create commits.
 
@@ -217,17 +217,17 @@ After all inspector subagents for the round return:
 - If ANY inspector reports findings AND the task has remaining adversarial rounds:
    - Mark the task as 🔴 Incomplete in `PROGRESS.md`.
    - Replace or prepend the `INSPECTOR FEEDBACK` block in the task file with the consolidated findings.
-   - Add an inspection note that includes the current round, for example `Round 2/3 - rework required`.
+   - Add an inspection note that includes the current round, for example `Round 1/2 - rework required`.
    - Add a change-log entry summarizing the failed adversarial round.
    - Commit the progress/task-file update with `inspection: mark task XX incomplete - [brief reason]`.
    - Return to Step 7 so the next loop iteration sends the task back to the Coder.
-- If ANY inspector reports findings AND this is round 3/3:
+- If ANY inspector reports findings AND this is round 2/2:
    - Do NOT mark the task incomplete again.
    - Keep the task as ✅ Completed.
    - Append the unresolved findings to `KNOWN_ISSUES.md` with the task id, phase, date, and a concise summary.
    - Update `PROGRESS.md` so the task's inspector note references the known-issues entry.
    - Add a change-log entry noting that the task completed with logged known issues.
-   - Commit the state update with `inspection: log known issues for task XX after round 3`.
+   - Commit the state update with `inspection: log known issues for task XX after round 2`.
 
 ### Step 6 — Check for phase completion (MANDATORY after adversarial inspection consolidation)
 
@@ -338,7 +338,7 @@ Inputs:
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
-- Adversarial round number: 1, 2, or 3
+- Adversarial round number: 1 or 2
 - Inspector model identity: provided by orchestrator (`GPT-5.4` or `Claude Sonnet`)
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
@@ -405,7 +405,7 @@ You must:
 
 8. Return your result in this structure so the orchestrator can consolidate multiple inspectors:
    ```
-   Inspection Round: <1|2|3>
+   Inspection Round: <1|2>
    Inspector Model: <GPT-5.4|Claude Sonnet>
    Verdict: <PASS|FINDINGS>
 
@@ -558,7 +558,7 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 | <YYYY-MM-DD> | - | Progress file created | Ralph Orchestrator | Initial setup |
 | <YYYY-MM-DD> | 01 | Completed | Coder Subagent | Commit: abc123... |
 | <YYYY-MM-DD> | 01 | Inspection Pass | Ralph Orchestrator | Consolidated adversarial inspection passed |
-| <YYYY-MM-DD> | 01 | Known issue logged | Ralph Orchestrator | Logged to `KNOWN_ISSUES.md` after adversarial round 3 |
+| <YYYY-MM-DD> | 01 | Known issue logged | Ralph Orchestrator | Logged to `KNOWN_ISSUES.md` after adversarial round 2 |
 ```
 
 ### Key Points for Task File Structure
@@ -678,7 +678,7 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
   - No placeholders or TODOs in implementation
   - Preflight checks pass
 - Can send the task back as 🔴 Incomplete if issues found and the round cap has not been reached
-- After 3 adversarial rounds, any remaining findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
+- After 2 adversarial rounds, any remaining findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
 - Provides detailed feedback to Coder for rework until the cap is reached
 
 ### Tier 3: Phase Inspector (Phase-Level QA)
@@ -700,8 +700,8 @@ When a task receives findings during adversarial inspection:
 3. Feedback is placed at TOP of file for Coder to see immediately
 4. Coder sees incomplete task (🔴 priority) and reads feedback
 5. Coder implements fixes based on feedback
-6. Adversarial inspectors verify again, up to a maximum of 3 rounds
-7. If findings still remain after round 3, orchestrator logs them to `KNOWN_ISSUES.md` and keeps the task ✅ complete
+6. Adversarial inspectors verify again, up to a maximum of 2 rounds
+7. If findings still remain after round 2, orchestrator logs them to `KNOWN_ISSUES.md` and keeps the task ✅ complete
 
 This ensures:
 - Incomplete work is caught early, not after phases are done

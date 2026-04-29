@@ -1,6 +1,6 @@
 {
   "name": "chrono-cli",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Plan and implement software changes using structured GitHub Copilot skills",
   "main": "index.js",
   "bin": {

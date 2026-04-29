@@ -2,7 +2,7 @@
 
 **Plan and implement software changes using structured GitHub Copilot skills**
 
-Chrono provides two GitHub Copilot skills for software engineers that transform how you plan and
+Chrono provides three GitHub Copilot skills for software engineers that transform how you plan and
 implement complex software changes in VS Code.
 
 Instead of endless manual prompting, Chrono provides structured workflows
@@ -15,6 +15,8 @@ and continuous validation.
   and actionable task breakdowns.
 - **`chrono-execute`**: An orchestration skill that autonomously implements tasks
    with continuous verification (the execution loop).
+- 🧠 **`chrono-self-improvement`**: Captures learnings, errors, and corrections to enable
+   continuous improvement across the full Chrono workflow.
 
 In this repository, the source skill files live under `skills/` and the installer copies them to
 `~/.agents/skills/` for use in GitHub Copilot.
@@ -47,11 +49,11 @@ Inspired by the **[delegation loop pattern](https://www.humanlayer.dev/blog/brie
 
 ## Core Skills
 
-Chrono provides two complementary skills:
+Chrono provides three complementary skills:
 
-### 📋 `chrono-plan`
+### 📋 `/chrono-plan`
 
-**A research and planning skill that produces reviewable specifications and actionable task breakdowns.**
+**A research, discussion, and planning skill that produces reviewable specifications and actionable task breakdowns.**
 
 `chrono-plan` systematically explores your change request through:
 
@@ -79,10 +81,10 @@ Chrono provides two complementary skills:
 
 **Files Description**:
 
-- `00.jira-request.txt`: The initial human request, often a poorly written JIRA ticket.
+- `00.jira-request.txt`: The initial human request, typically a Jira ticket.
 - `01-specification.md`: The main output of Plan Mode, containing reviewable design and architectural choices without technical details or code.
-- `01-specification.jira.txt`: A JIRA-friendly version of the specification
-  for easy putting issues in review in JIRA.
+- `01-specification.jira.txt`: A Jira-friendly version of the specification
+  for easy putting issues in review in Jira.
 - `02-plan.md`: A highly technical architecture plan that includes task dependencies
   and low-level details. This file is never used after task breakdown is finished.
 - `03-tasks-00-READBEFORE.md`: critical context and instructions for all tasks,
@@ -94,7 +96,7 @@ Chrono provides two complementary skills:
   Tasks are grouped into phases, but each task file is self-contained
   to reduce cognitive overload and token waste.
 
-### ⚙️ `chrono-execute`
+### ⚙️ `/chrono-execute`
 
 **An orchestration skill that autonomously implements tasks with continuous verification (the execution loop).**
 
@@ -115,11 +117,20 @@ Chrono provides two complementary skills:
 **Three-tier quality assurance**:
 
 - **Preflight checks** — run by the Coder before marking any task complete
-- **Adversarial Task Inspectors** — use 1-2 subagents per task, with `GPT-5.4` and `Claude Sonnet` paired on larger tasks, capped at 3 rounds
+- **Adversarial Task Inspectors** — use 1-2 subagents per task, with `GPT-5.4` and `Claude Sonnet` paired on larger tasks, capped at 2 rounds
 - **Phase Inspector** — validates phase completion before advancing
 
 At the end of each coding task AND after each review, a commit is generated.
 It is recommended to squash all these commits into a single self-contained commit before merging.
+
+### 🧠 `/chrono-self-improvement`
+
+**A general-purpose Chrono workflow skill that captures learnings, errors, and corrections to
+enable continuous improvement across the full Chrono workflow.**
+
+`chrono-self-improvement` captures structured learnings and stores them in `.chrono/learnings/`.
+It can be invoked by any Chrono agent when encountering errors, surprising findings, or reusable
+improvements. Adapted from [self-improvement](https://github.com/pskoett/pskoett-ai-skills/blob/main/skills/self-improvement/SKILL.md).
 
 ## Supporting Community Skills
 
@@ -128,13 +139,8 @@ Chrono also ships the following open-source community skills that its core skill
 - **`find-docs`** (`.github/skills/find-docs/`) — fetches current library documentation via `ctx7`
 - **`playwright-cli`** (`.github/skills/playwright-cli/`) — browser automation for UI task verification
 - **`ui-ux-pro-max`** (`.github/prompts/ui-ux-pro-max/`) — design system generation prompt
-- **`chrono-self-improvement`** (`skills/chrono-self-improvement/`) — captures learnings, errors, and corrections to enable continuous improvement across the full Chrono workflow (adapted from [self-improvement](https://github.com/pskoett/pskoett-ai-skills/blob/main/skills/self-improvement/SKILL.md))
-
 `chrono-plan` invokes `find-docs` and `ui-ux-pro-max` when relevant.
 `chrono-execute` invokes `playwright-cli` for any task that involves UI or front-end work.
-`chrono-self-improvement` is a general-purpose Chrono workflow skill that can be invoked by any
-agent when it encounters an error or learns something new. It captures that learning in a
-structured format so the agent can refer back to it later and improve over time.
 
 ## Subagent Personas
 
@@ -258,7 +264,7 @@ The installer will:
    - Delegate implementation to Coder subagents
    - Verify each task with adversarial Task Inspectors
    - Track progress in `PROGRESS.md`
-   - Log any unresolved round-3 findings to `KNOWN_ISSUES.md`
+   - Log any unresolved round-2 findings to `KNOWN_ISSUES.md`
    - Continue until all tasks complete
 
 **Pausing**: Create `PAUSE.md` in the planning folder to safely pause the loop for manual task edits.
@@ -303,50 +309,3 @@ graph TD
    S -->|Yes| T[Implementation complete + durable learnings retained]
    S -->|No| J
 ```
-
-## Honest Feedback: Current Limitations
-
-Chrono is a **production-level proof of concept**.
-It works, I use it daily in my workflow — but it's not perfect.
-
-In this section, I humbly document the real limitations and known issues
-of the current implementation.
-
-I would be grateful if you tried it out and shared your feedback,
-especially if you have suggestions for improvement.
-
-### Known Issues
-
-1. **Task selection autonomy**: The orchestrator sometimes chooses tasks and
-   sends task numbers to the Coder subagent, despite instructions stating
-   "let the subagent choose". This creates unnecessary coupling.
-
-2. **Rate limit recovery failures**: When hitting GitHub Copilot daily/weekly rate limits, retry behavior degrades:
-   - Orchestrator "forgets" to trigger subagents
-   - Implementation happens in orchestrator instead of Coder subagent
-   - **Workaround**: Start a fresh chat session
-
-3. **Feature completeness vs. accessibility gap**: The most significant limitation — at completion:
-   - ✅ All features are typically implemented
-   - ✅ Complete preflight checks pass
-   - ✅ Unit tests pass
-   - ✅ Code quality is high
-   - ❌ **But features may not be user-accessible** (especially with UI)
-
-   Despite intensive planning and no visible gaps in specifications,
-   implemented features sometimes exist in code but lack integration points, UI bindings,
-   or entry points for users to actually use them.
-
-   A human would have caught this gap during implementation,
-   but the agent still misses it.
-
----
-
-## Acknowledgments
-
-Inspired by the delegation loop concept and refined through experimentation with GitHub Copilot's Agent Mode system.
-
-**Read more**:
-
-- [Original Reddit post](https://www.reddit.com/r/GithubCopilot/comments/1qapkdg/ralph_wiggum_technic_in_vs_code_copilot_with/)
-- [X/Twitter thread](https://x.com/stibbons31/status/2020456046259589229)
