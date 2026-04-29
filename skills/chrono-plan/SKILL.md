@@ -76,7 +76,42 @@ Required artifacts you will create:
   change description in chat. If neither, ask for the JIRA ID and change request.
 - `01-specification.md` — OUTPUT: you create this after questions
 - `02-plan.md` — OUTPUT: you create this after specification
+- `03-tasks-00-READBEFORE.md` — OUTPUT: execution capsule for downstream coding agents
 - `03-tasks-*` — OUTPUT: individual, actionable files
+
+## Chrono runtime contract
+
+The planning artifacts must give `chrono-execute` enough deterministic state to run without
+rediscovering planning context.
+
+Include these fields in the generated artifacts:
+- PRD folder path
+- JIRA/change id and short title
+- planning depth used: `quick`, `standard`, or `deep`
+- phase list and current phase starting point
+- task id format and dependency map
+- preflight command, or `Preflight Command: UNKNOWN` with the reason it could not be identified
+- relevant `.chrono/learnings/` entries reviewed during planning
+- SME overlays applied and any material assumptions they introduced
+- API spec paths, design-system paths, and external documentation references when applicable
+
+`03-tasks-00-READBEFORE.md` is the execution capsule. It must include the runtime contract,
+preflight command, dependency map, relevant learnings, SME overlay summary, known risks,
+and any project conventions that every coding or inspection subagent must know.
+
+## Continuous improvement inputs
+
+Before asking planning questions, check `.chrono/learnings/` if it exists:
+- Read pending high-priority entries first.
+- Read entries related to files, frameworks, domains, or commands likely to be touched by the
+   change.
+- Summarize only the relevant lessons in `01-specification.md`, `02-plan.md`, and
+   `03-tasks-00-READBEFORE.md`.
+- If no relevant learnings exist, record that explicitly in `03-tasks-00-READBEFORE.md`.
+
+If planning discovers a reusable project convention, repeated ambiguity, failed research command,
+or user correction that should affect future runs, invoke the `chrono-self-improvement` workflow
+after completing the current planning phase.
 
 ## Research rules
 
@@ -158,29 +193,41 @@ MANDATORY steps:
    If the user cancels, STOP. If the user continues, proceed without overlays.
 3. Read all applicable project-local planning overlays from `.chrono/sme-overlays/general/*.md`
    and `.chrono/sme-overlays/plan/*.md` if those directories exist.
-4. **If the request involves UI or front-end design**, apply the UI design rules above before proceeding.
-5. **If the request involves any API work**, note that API design rules will apply during Phase 5 and Phase 6.
-6. Gather comprehensive project context:
+4. Review relevant `.chrono/learnings/` entries as described in **Continuous improvement inputs**.
+5. **If the request involves UI or front-end design**, apply the UI design rules above before proceeding.
+6. **If the request involves any API work**, note that API design rules will apply during Phase 5 and Phase 6.
+7. Gather comprehensive project context:
    - Project structure and architecture
    - Existing documentation (README, AGENTS.md, memory bank)
    - Related code modules and their responsibilities
    - Similar features or patterns in the codebase
    - Development guidelines and best practices
-7. DO NOT proceed until you have 80% confidence in understanding the project landscape
+8. Choose a planning depth and record it in the artifacts:
+   - `quick`: narrow, low-risk, well-understood change; ask 3-5 first-pass questions and 0-3 follow-ups.
+   - `standard`: normal feature or refactor; ask 6-10 first-pass questions and 3-5 follow-ups.
+   - `deep`: ambiguous, cross-cutting, high-risk, user-facing, API-affecting, or migration-heavy
+      work; ask 10-15 first-pass questions and 5-10 follow-ups.
+9. DO NOT proceed until you have 80% confidence in understanding the project landscape
 
-### PHASE 2: First Question Set (10–15 Questions)
+### PHASE 2: First Question Set
 
 After context gathering, you MUST:
-1. Plan **10–15 clarifying questions** covering:
+1. Plan clarifying questions according to the selected planning depth:
+   - `quick`: 3-5 questions
+   - `standard`: 6-10 questions
+   - `deep`: 10-15 questions
+2. Cover:
    - Functional requirements and edge cases
    - Non-functional requirements (performance, security, etc.)
    - Integration points and dependencies
    - User experience and interface considerations
    - Constraints and assumptions
-2. Ask each question **one at a time** using the `vscode_askQuestions` tool, respecting the question
-   guidelines below. Wait for the user's answer before asking the next question.
-3. DO NOT skip this phase — questions are essential for quality specification
-4. After all questions are answered, ask the user if they want to continue using `vscode_askQuestions`:
+3. Ask each question **one at a time** using the best available Copilot question mechanism:
+   - Prefer `vscode_askQuestions` when available.
+   - If unavailable in the current Copilot surface, ask the same single question in chat with the
+      same four options and wait for the user's answer.
+4. DO NOT skip this phase — questions are essential for quality specification
+5. After all questions are answered, ask the user if they want to continue using the same question mechanism:
    - "Continue to next step" (recommended)
    - "Discuss more gray-areas"
 
@@ -195,12 +242,13 @@ Good questions are:
 - Based on what you learned in Phase 1
 - Designed to uncover ambiguities in the request
 
-For each question, call `vscode_askQuestions` with a **single question** containing exactly 4 options:
+For each question, use `vscode_askQuestions` when available. If it is unavailable, ask the same
+question in chat. Each question must contain exactly 4 options:
 - The 3 most relevant/likely answers for that specific question
 - The most recommended option listed first, suffixed with "(recommended)"
 - A final option: "Other (type your answer)"
 
-Call the tool once per question and wait for the answer before calling it again for the next question.
+Ask one question at a time and wait for the answer before asking the next question.
 
 Example call (one question at a time):
 ```
@@ -218,16 +266,20 @@ vscode_askQuestions([
 ])
 ```
 
-### PHASE 3: Deep Analysis and Second Question Set (5–10 Questions)
+### PHASE 3: Deep Analysis and Second Question Set
 
 After receiving answers to Phase 2:
 1. Analyze the user's responses critically
 2. Identify gaps, contradictions, or areas needing deeper exploration
 3. Use tools to explore additional code/documentation based on new information
-4. Plan **5–10 targeted follow-up questions** that are more technical and specific than Phase 2
-5. Ask each question **one at a time** using `vscode_askQuestions`, respecting the follow-up question
-   guidelines below. Wait for the user's answer before asking the next question.
-6. After all questions are answered, ask the user if they want to continue using `vscode_askQuestions`:
+4. Plan targeted follow-up questions according to the selected planning depth:
+   - `quick`: 0-3 questions; if no meaningful gaps remain, state that and proceed to Phase 4.
+   - `standard`: 3-5 questions
+   - `deep`: 5-10 questions
+5. Ask each selected question **one at a time** using the best available Copilot question mechanism,
+   respecting the follow-up question guidelines below. Wait for the user's answer before asking the
+   next question.
+6. After all follow-up questions are answered, ask the user if they want to continue using the same question mechanism:
    - "Continue to next step" (recommended)
    - "Discuss more gray-areas"
 
@@ -243,12 +295,13 @@ Follow-up questions should:
 - Validate assumptions about existing code/systems
 - Confirm edge cases and error handling strategies
 
-For each question, call `vscode_askQuestions` with a **single question** containing exactly 4 options:
+For each question, use `vscode_askQuestions` when available. If it is unavailable, ask the same
+question in chat. Each question must contain exactly 4 options:
 - The 3 most relevant/likely answers for that specific question
 - The most recommended option listed first, suffixed with "(recommended)"
 - A final option: "Other (type your answer)"
 
-Call the tool once per question and wait for the answer before calling it again for the next question.
+Ask one question at a time and wait for the answer before asking the next question.
 
 Example call (one question at a time):
 ```
@@ -368,6 +421,7 @@ After specification approval:
 - **Unit tests**: [what needs unit testing — list specific functions/classes]
 - **Integration tests**: [what needs integration testing]
 - **Manual testing**: [what needs manual verification]
+- **Preflight command**: [exact command downstream agents must run, or UNKNOWN with reason]
 - **API spec**: [list spec file(s) that must be updated before implementation, if applicable]
 
 ## Risks and Mitigations
@@ -389,9 +443,13 @@ After plan approval:
 3. Each task is a separate file: `03-tasks-01-[name].md`, `03-tasks-02-[name].md`, etc.
 4. Follow the task template below
 5. Ensure tasks are modular, resumable, and can be worked on independently
-6. Include a final wrap-up task that generates `04-commit-msg.md` and `05-gitlab-mr.md`
+6. Include explicit dependencies for every task. Use `None` only when the task can run safely
+   at the start of its phase.
+7. Include the preflight command from the runtime contract in `03-tasks-00-READBEFORE.md` and
+   every task's validation steps. If it is unknown, include a discovery task before implementation.
+8. Include a final wrap-up task that generates `04-commit-msg.md` and `05-gitlab-mr.md`
    as specified in the commit message and GitLab MR templates below
-7. If `.chrono/sme-overlays/execute/` exists, mention that execution overlays live there in
+9. If `.chrono/sme-overlays/execute/` exists, mention that execution overlays live there in
    `03-tasks-00-READBEFORE.md` so downstream implementation agents can apply the same
    project-local SME during coding and verification.
 
@@ -427,14 +485,15 @@ Before coding, Read FIRST -> Load [03-tasks-00-READBEFORE.md](03-tasks-00-READBE
 
 ## Detailed Steps
 1. Update `PROGRESS.md` to mark this task as 🔄 In Progress (in the Status column)
-2. **[API tasks only]** Update the API spec (OpenAPI/GraphQL/AsyncAPI) to reflect the changes before writing any implementation code
-3. **[TDD]** Write failing unit tests for the feature/change described in this task
-4. [Implement the feature/change to make the tests pass]
-5. [Additional implementation steps with file and function/class references]
-6. [Validation step: tests pass, preflight checks pass]
-7. Run `just preflight` and fix any issues until it passes
-8. Update `PROGRESS.md` to mark this task as ✅ Completed (in the Status column)
-9. Commit with a conventional commit message: `feat: implement task XX - [description]` or `fix: address task XX - [description]`
+2. Confirm all dependencies listed above are ✅ Completed in `PROGRESS.md`
+3. **[API tasks only]** Update the API spec (OpenAPI/GraphQL/AsyncAPI) to reflect the changes before writing any implementation code
+4. **[TDD]** Write failing unit tests for the feature/change described in this task
+5. [Implement the feature/change to make the tests pass]
+6. [Additional implementation steps with file and function/class references]
+7. [Validation step: tests pass, preflight checks pass]
+8. Run `<preflight command from 03-tasks-00-READBEFORE.md>` and fix any issues until it passes
+9. Update `PROGRESS.md` to mark this task as ✅ Completed (in the Status column)
+10. Commit with a conventional commit message: `feat: implement task XX - [description]` or `fix: address task XX - [description]`
 
 ## Acceptance Criteria
 - [ ] [Criterion 1]
@@ -522,8 +581,9 @@ Provide concise, illustrative examples of the new functionality.
 CRITICAL: You MUST follow these transition rules:
 
 1. **Phase 1 → Phase 2**: Only after reading request + gathering context
-2. **Phase 2 → Phase 3**: Only after user answers ALL 10–15 questions
-3. **Phase 3 → Phase 4**: Only after user answers ALL 5–10 follow-up questions
+2. **Phase 2 → Phase 3**: Only after user answers all questions required by the selected planning depth
+3. **Phase 3 → Phase 4**: Only after user answers all required follow-up questions, or after you
+   explicitly state that no follow-up questions are needed for `quick` planning
 4. **Phase 4 → Phase 5**: Only after user reviews and approves specification
 5. **Phase 5 → Phase 6**: Only after user reviews and approves plan
 6. **Phase 6 → Complete**: Only after all task files are created

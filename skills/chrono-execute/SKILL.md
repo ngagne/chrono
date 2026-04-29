@@ -27,8 +27,9 @@ Chrono without overwriting their own conventions.
 
 Check for a project-local directory at `.chrono/sme-overlays/`.
 
-- Read all `*.md` files in alphabetical order from `.chrono/sme-overlays/general/` and
-   `.chrono/sme-overlays/execute/` on every loop iteration if those directories exist.
+- Read overlay file names, timestamps, and summaries on every loop iteration if those directories
+   exist. Re-read full overlay files only when they changed or are directly relevant to the current
+   subagent role.
 - Treat files in `.chrono/sme-overlays/general/` as shared guidance whenever `chrono-plan` or
    `chrono-execute` runs.
 - Treat files with no prefix in `.chrono/sme-overlays/execute/` as shared guidance for all
@@ -93,6 +94,41 @@ If the folder contains equivalent artifacts but with different names, adapt prag
 
 The implementation might already have been started. Use `PROGRESS.md` to determine what remains.
 
+## Chrono runtime contract
+
+Before delegating work, extract the runtime contract from the PRD artifacts, especially
+`03-tasks-00-READBEFORE.md` when present.
+
+Required runtime fields:
+- PRD folder path
+- JIRA/change id and short title
+- current phase and phase list
+- task id format and dependency map
+- preflight command
+- relevant `.chrono/learnings/` entries
+- SME overlays applied
+- API spec paths, design-system paths, and external documentation references when applicable
+
+If the runtime contract is incomplete:
+- Reconstruct missing fields from `01-specification.md`, `02-plan.md`, task files, and repo docs.
+- If the preflight command cannot be identified, STOP before delegating implementation and ask the
+   user to provide it or update `03-tasks-00-READBEFORE.md`.
+- Record reconstructed fields in `PROGRESS.md` or `03-tasks-00-READBEFORE.md` so future iterations
+   do not rediscover them.
+
+## Continuous improvement inputs
+
+At startup and before each phase boundary:
+- Read pending high-priority entries from `.chrono/learnings/` if it exists.
+- Read entries related to the current task files, commands, framework, or area being changed.
+- Pass only relevant learning summaries to Coder, Task Inspector, and Phase Inspector subagents.
+
+Invoke the `chrono-self-improvement` workflow when:
+- The same preflight command fails twice for the same task.
+- A task reaches round 2 with unresolved blocking findings.
+- Phase inspection resets one or more tasks to 🔴 Incomplete.
+- The user corrects Chrono behavior or identifies a reusable workflow gap.
+
 ## Core contract
 
 - You MUST call a subagent for actual implementation.
@@ -100,7 +136,8 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST ensure ALL tasks within a phase are completed before moving to the next phase.
 - You MUST stop once the progress file indicates completion.
 - You MUST run adversarial task inspection with 1-2 inspector subagents after each completed task.
-- You MUST use distinct models for parallel inspectors: `GPT-5.4` and `Claude Sonnet`.
+- You MUST use distinct available high-capability models for parallel inspectors, preferring
+   `GPT-5.4` and `Claude Sonnet` when both are available.
 - You MUST cap adversarial inspection at 2 rounds per task; after round 2, log unresolved blocking findings to
    `KNOWN_ISSUES.md` and allow the task to remain ✅ Completed.
 - You MUST apply project-local execution overlays from `.chrono/sme-overlays/general/` and
@@ -147,16 +184,26 @@ tracker without the orchestrator or subagent racing those changes.
    - Create it with a top-level heading `# Known Issues`.
    - Use it to capture unresolved blocking findings that remain after the maximum adversarial inspection rounds.
 
+### Step 2b — Validate runtime contract
+
+- Read `03-tasks-00-READBEFORE.md` if it exists.
+- Extract and verify the preflight command, dependency map, relevant learnings, and current phase.
+- If the preflight command is `UNKNOWN`, missing, or contradicted by repo docs, STOP and ask the
+   user to provide the correct command before delegating implementation.
+- If dependency information is missing from a task, infer it from `02-plan.md`; if it cannot be
+   inferred, treat the task as dependent on prior numbered tasks in the same phase.
+
 ### Step 3 — Read state (every iteration)
 
 Read, in this order:
 1. `PROGRESS.md` (including current phase and phase status)
 2. The titles, phases, and status of tasks in `03-tasks-*`
 3. `KNOWN_ISSUES.md`
-4. All applicable project-local execution overlays from `.chrono/sme-overlays/general/*.md`
+4. Relevant `.chrono/learnings/` entries for the current phase or task area
+5. Overlay manifest/summaries for applicable project-local execution overlays from `.chrono/sme-overlays/general/*.md`
    and `.chrono/sme-overlays/execute/*.md`
-5. `01-specification.md` only if you need to re-anchor scope
-6. `02-plan.md` only if you're stuck on architecture decisions
+6. `01-specification.md` only if you need to re-anchor scope
+7. `02-plan.md` only if you're stuck on architecture decisions
 
 ### Step 3a — Prioritize incomplete tasks
 
@@ -165,20 +212,45 @@ After reading `PROGRESS.md`, check for tasks marked as 🔴 Incomplete:
 - The Coder subagent will see these first and prioritize them
 - This ensures rework happens immediately, not after all new tasks are attempted
 
+### Step 3b — Determine eligible tasks
+
+Before delegating to the Coder, determine which tasks in the current phase are eligible:
+- A 🔴 Incomplete task is eligible regardless of dependency state because it is rework for an
+   already-attempted task.
+- A ⬜ Not Started task is eligible only when every listed dependency is ✅ Completed or explicitly
+   waived in `PROGRESS.md`.
+- If no tasks are eligible because dependencies are incomplete, re-read the blocking dependency
+   tasks and make the earliest incomplete dependency the next eligible task.
+- Pass the eligible task list and blocked task list to the Coder.
+
+### Step 3c — Loop safety checks
+
+Before delegating:
+- If a task is stuck as 🔄 In Progress from a prior interrupted run and there is no active Coder
+   subagent, mark it 🔴 Incomplete with note `Recovered from stale in-progress state`, then rework it.
+- If the same task has been reset by Phase Inspector twice in the same phase, pause and ask the
+   human whether to continue, split the task, or revise the PRD.
+- If the same valid blocking finding reaches `KNOWN_ISSUES.md` more than once across related tasks,
+   invoke `chrono-self-improvement` and pause for human review before continuing.
+
 ### Step 4 — Delegate to Coder subagent (phase-aware)
 
 Call a subagent with **exactly** the instructions from <CODER_SUBAGENT_INSTRUCTIONS>.
 
 **Pass the current phase to the Coder**: Extract the "Current Phase" field from `PROGRESS.md` and inform the Coder which phase to work on.
-Also pass the contents or file paths of every applicable `.chrono/sme-overlays/general/` overlay
-file and every applicable `.chrono/sme-overlays/execute/` overlay file, including all shared
-overlays and any `coder-*.md` overlays.
+Also pass:
+- the eligible task list and blocked task list from Step 3b
+- the preflight command from the runtime contract
+- relevant `.chrono/learnings/` summaries
+- summaries or file paths of applicable `.chrono/sme-overlays/general/` and
+   `.chrono/sme-overlays/execute/` overlays, including all shared overlays and any `coder-*.md`
+   overlays. Include full overlay content only when it changed or is directly relevant.
 
 **Your role**: You are ONLY orchestrating. You do NOT pick which task the Coder should implement.
 The Coder subagent has full autonomy to:
 - Examine all tasks in the current phase
 - Prioritize 🔴 Incomplete tasks first (if any exist)
-- Select the most important next task to implement
+- Select the most important eligible next task to implement
 - Implement it fully (code + tests + docs as required)
 - Run preflight checks before marking complete
 - Update `PROGRESS.md`
@@ -194,13 +266,18 @@ After the Coder subagent completes a task and marks it ✅ Completed:
    - Use 1 inspector for small, low-risk, well-contained tasks.
    - Use 2 inspectors for larger, multi-file, user-facing, API-affecting, ambiguous, or otherwise high-risk tasks.
 - Spawn each inspector as a separate subagent.
-- When using 2 inspectors, run them in parallel and use different models:
+- When using 2 inspectors, run them in parallel and use different available high-capability models:
    - Inspector A: `GPT-5.4`
    - Inspector B: `Claude Sonnet`
-- When using 1 inspector, default to `GPT-5.4` unless there is a clear reason to prefer `Claude Sonnet`.
-- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
-    `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
-    `inspector-*.md` overlays.
+- If either preferred model is unavailable, use the best available distinct model.
+- If only one model is available, run inspectors sequentially with different review lenses:
+   - Inspector A lens: acceptance criteria, tests, and preflight
+   - Inspector B lens: runtime behavior, integration, edge cases, and regressions
+- When using 1 inspector, default to the best available high-capability model.
+- Pass relevant `.chrono/learnings/` summaries.
+- Pass applicable `.chrono/sme-overlays/general/` and `.chrono/sme-overlays/execute/` summaries
+   or file paths, including all shared overlays and any `inspector-*.md` overlays. Include full
+   overlay content only when it changed or is directly relevant.
 - Pass the current adversarial round number (maximum 2) to each inspector.
 - Pass the exact task id, task file path, current phase, and implementation commit or commit range
    that the inspector must review.
@@ -251,6 +328,8 @@ After all inspector subagents for the round return:
    - Keep the task as ✅ Completed.
    - Append only the unresolved blocking findings to `KNOWN_ISSUES.md` with the task id, phase, date,
       evidence, impact, and why it was not fixed within the capped inspection loop.
+   - Invoke the `chrono-self-improvement` workflow to log or update a learning for the unresolved
+      blocking finding pattern.
    - Update `PROGRESS.md` so the task's inspector note references the known-issues entry.
    - Add a change-log entry noting that the task completed with logged known issues.
    - Commit the state update with `inspection: log known issues for task XX after round 2`.
@@ -268,28 +347,39 @@ After Step 5a finishes:
 
 If the current phase is complete AND HITL mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
-- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
-   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
-   `inspector-*.md` overlays.
+- Pass relevant `.chrono/learnings/` summaries.
+- Pass applicable `.chrono/sme-overlays/general/` and `.chrono/sme-overlays/execute/` summaries
+   or file paths, including all shared overlays and any `inspector-*.md` overlays.
 - Phase Inspector reviews all commits in the phase and generates a validation report
 - Output the Phase Inspector's report to the human
-- PAUSE and request explicit human approval to proceed to next phase
-- Wait for human confirmation before proceeding
-- Record validation in `PROGRESS.md` with timestamp and approver
-- Update `PROGRESS.md` to set current phase to next phase
+- If Phase Inspector recommends INCOMPLETE:
+   - Do NOT ask for phase approval.
+   - Do NOT advance the current phase.
+   - Invoke the `chrono-self-improvement` workflow if the reset exposes a reusable failure pattern.
+   - Return to Step 7 so reset tasks are reworked.
+- If Phase Inspector recommends READY FOR NEXT PHASE:
+   - PAUSE and request explicit human approval to proceed to next phase
+   - Wait for human confirmation before proceeding
+   - Record validation in `PROGRESS.md` with timestamp and approver
+   - Update `PROGRESS.md` to set current phase to next phase
 - Then continue to Step 7
 
 ### Step 6b — Phase Inspector + Auto-proceed (MANDATORY when phase complete in Auto mode)
 
 If the current phase is complete AND Auto mode is enabled:
 - MANDATORY: Call Phase Inspector subagent with instructions from <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
-- Pass every applicable `.chrono/sme-overlays/general/` overlay file and every applicable
-   `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
-   `inspector-*.md` overlays.
+- Pass relevant `.chrono/learnings/` summaries.
+- Pass applicable `.chrono/sme-overlays/general/` and `.chrono/sme-overlays/execute/` summaries
+   or file paths, including all shared overlays and any `inspector-*.md` overlays.
 - Phase Inspector reviews all commits and generates validation report for audit trail
 - Output the Phase Inspector's report (logged for review)
-- Record validation in `PROGRESS.md` with timestamp
-- Update `PROGRESS.md` to set current phase to next phase
+- If Phase Inspector recommends INCOMPLETE:
+   - Do NOT advance the current phase.
+   - Invoke the `chrono-self-improvement` workflow if the reset exposes a reusable failure pattern.
+   - Return to Step 7 so reset tasks are reworked.
+- If Phase Inspector recommends READY FOR NEXT PHASE:
+   - Record validation in `PROGRESS.md` with timestamp
+   - Update `PROGRESS.md` to set current phase to next phase
 - Continue to Step 7
 
 ### Step 7 — Repeat until done
@@ -321,15 +411,20 @@ Inputs:
 - Tasks: `03-tasks-*.md`
 - Progress tracker: `PROGRESS.md`
 - Current phase: (provided by orchestrator)
+- Eligible task list and blocked task list: (provided by orchestrator)
+- Preflight command: (provided by orchestrator)
+- Relevant `.chrono/learnings/` summaries: (provided by orchestrator)
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `coder-*.md` overlays
 
 You must:
 1. Read `PROGRESS.md` to understand what is done, what remains, and confirm the **current phase**.
-2. Read all applicable SME overlays passed by the orchestrator before selecting a task.
+2. Read relevant `.chrono/learnings/` summaries and all applicable SME overlays passed by the orchestrator before selecting a task.
 3. **If present**, read `03-tasks-00-READBEFORE.md` for important context about the change request, specification, and critical information you need to know before starting ANY task.
 4. **IMPORTANT**: Check for 🔴 Incomplete tasks first. If any exist in the current phase, pick ONE Incomplete task as your highest priority.
-5. If no Incomplete tasks exist in the current phase, list all remaining Not Started (⬜) tasks and pick ONE you think is the most important next step.
+5. If no Incomplete tasks exist in the current phase, choose from the eligible Not Started (⬜)
+   tasks provided by the orchestrator. Do not select a blocked task unless the orchestrator has
+   explicitly waived its dependencies.
    (Focus on tasks in the current phase only—do not jump to next phase tasks.)
    (This is not necessarily the first task in the phase, pick the most important.)
    (**DO NOT pick multiple tasks, one per call**)
@@ -343,7 +438,9 @@ You must:
 8. **If the task involves API changes**, follow <API_DESIGN_RULES>: update the API spec file(s) first, commit the spec, then proceed with implementation.
 9. **Follow TDD** as described in <TDD_RULES>: write failing tests first, then implement to make them pass.
 10. Implement the selected task end-to-end, including tests and documentation required by the task.
-11. **Before marking complete**, run the preflight checks described in <PREFLIGHT> and fix any issues until they pass.
+11. **Before marking complete**, run the provided preflight command and fix any issues until it passes.
+    If the same preflight command fails twice for the same root cause, note this in your return so
+    the orchestrator can invoke `chrono-self-improvement`.
 12. **If the task involves UI or front-end work**, follow <UI_FRONTEND_RULES>: verify in a live browser with `playwright-cli` and write end-to-end tests before marking complete.
 13. Update `PROGRESS.md` to mark the task as ✅ Completed.
 14. If all tasks in the current phase are now completed, update the Phase Status in `PROGRESS.md` to indicate the phase is complete.
@@ -372,7 +469,8 @@ Inputs:
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
 - Adversarial round number: 1 or 2
-- Inspector model identity: provided by orchestrator (`GPT-5.4` or `Claude Sonnet`)
+- Inspector model identity and review lens: provided by orchestrator
+- Relevant `.chrono/learnings/` summaries: provided by orchestrator
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
    overlays
@@ -384,7 +482,7 @@ You must:
    - What features should be implemented
    - What documentation updates are required
    - **IMPORTANT**: If there is an existing "INSPECTOR FEEDBACK" section, read the entire task file (acceptance criteria and goals should remain visible after the feedback). This is a re-review of a previously incomplete task.
-2. Read all applicable SME overlays passed by the orchestrator before validating the task.
+2. Read relevant `.chrono/learnings/` summaries and all applicable SME overlays passed by the orchestrator before validating the task.
 
 3. If this is round 2, begin with the existing `INSPECTOR FEEDBACK` block:
    - Verify each prior finding id (`F1`, `F2`, etc.) individually.
@@ -458,7 +556,8 @@ You must:
 10. Return your result in this structure so the orchestrator can consolidate multiple inspectors:
    ```
    Inspection Round: <1|2>
-   Inspector Model: <GPT-5.4|Claude Sonnet>
+   Inspector Model: <model name>
+   Review Lens: <acceptance/tests/preflight|runtime/integration/regression|full>
    Verdict: <PASS|FINDINGS>
 
    Prior Finding Status (round 2 only):
@@ -500,12 +599,13 @@ Inputs:
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
 - `KNOWN_ISSUES.md`
+- Relevant `.chrono/learnings/` summaries
 - Applicable SME overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/`: general overlays, shared overlays, and `inspector-*.md`
    overlays
 
 You must:
-1. Read all applicable SME overlays passed by the orchestrator before validating the phase.
+1. Read relevant `.chrono/learnings/` summaries and all applicable SME overlays passed by the orchestrator before validating the phase.
 
 2. Identify all tasks in the current phase that are marked ✅ Completed.
 
@@ -533,6 +633,7 @@ You must:
    - Add entry to "Phase Validation" table with your assessment
    - If READY, note that it awaits human approval (if HITL) or is approved (if Auto)
    - If issues found, mark affected tasks as 🔴 Incomplete with details
+   - Do not update the current phase when the recommendation is INCOMPLETE
 
 7. Output the Phase Validation Report to the orchestrator:
    - If HITL is enabled: orchestrator will show this to human for approval
@@ -557,6 +658,9 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 **Last Updated**: <YYYY-MM-DD>
 **HITL Mode**: false (set to true to enable Human-in-the-Loop validation at phase boundaries)
 **Current Phase**: Phase 1
+**Preflight Command**: <exact command or UNKNOWN>
+**Runtime Contract Source**: `03-tasks-00-READBEFORE.md`
+**Relevant Learnings Reviewed**: <none or learning ids>
 
 ---
 
@@ -568,6 +672,9 @@ If you need to create `PROGRESS.md`, use this template and adapt it based on the
 |------|-------|--------|-----------------|
 | 01 | <title from task file> | ⬜ Not Started | |
 | 02 | <title from task file> | ⬜ Not Started | |
+
+**Blocked Tasks**:
+- Task <N>: blocked by Task <M>
 
 **Phase Status**: 🔄 In Progress
 
@@ -717,7 +824,9 @@ When any task involves creating or modifying an API (REST, GraphQL, AsyncAPI):
 <PREFLIGHT>
 To validate an implementation, ensure the preflight validation script passes.
 
-See `AGENTS.md` or project documentation for the syntax to run preflight checks.
+Use the preflight command from the runtime contract in `03-tasks-00-READBEFORE.md` or
+`PROGRESS.md`. If missing, identify it from `AGENTS.md` or project documentation before coding.
+Do not guess when multiple plausible commands exist.
 
 - `just preflight`
 - `just sct`
@@ -725,6 +834,8 @@ See `AGENTS.md` or project documentation for the syntax to run preflight checks.
 - ...
 
 Ensure to fix all issues raised by this campaign with the best possible solutions.
+If the same command fails twice for the same root cause, invoke the `chrono-self-improvement`
+workflow to log or update a reusable error entry.
 </PREFLIGHT>
 
 
@@ -741,7 +852,8 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 ### Tier 2: Adversarial Task Inspectors (Per-Task QA)
 - Triggered automatically after each task is marked ✅ Completed
 - Uses 1-2 inspector subagents depending on task size and risk
-- For 2-inspector reviews, runs `GPT-5.4` and `Claude Sonnet` in parallel
+- For 2-inspector reviews, prefers `GPT-5.4` and `Claude Sonnet`; if unavailable, uses distinct
+  available high-capability models or separate review lenses with one model
 - Verifies:
   - All acceptance criteria from task file are met
   - Unit tests were actually added (not faked)
@@ -753,6 +865,7 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 - Can send the task back as 🔴 Incomplete if valid blocking findings remain and the round cap has not been reached
 - After 2 adversarial rounds, only unresolved blocking findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
 - Provides detailed feedback to Coder with required fixes, verification steps, and a resolution checklist
+- Feeds repeated or capped findings into `chrono-self-improvement`
 
 ### Tier 3: Phase Inspector (Phase-Level QA)
 - Triggered when all tasks in a phase are ✅ Completed by Inspector
@@ -764,6 +877,7 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 - Generates a Phase Validation Report
 - If HITL enabled, pauses and shows report to human for approval
 - Can reset tasks to 🔴 Incomplete if phase-level issues found
+- Does not allow the orchestrator to advance phases when the recommendation is INCOMPLETE
 
 ### QA Loop Impact
 
@@ -781,4 +895,5 @@ This ensures:
 - Rework is prioritized (🔴 tasks before new tasks)
 - Coding agents know exactly what's wrong and what to fix
 - Re-review focuses on unresolved blockers instead of expanding into unrelated critique
+- Repeated failures become reusable learnings instead of one-off chat history
 - Phase boundaries have human-validated quality gates (if HITL)

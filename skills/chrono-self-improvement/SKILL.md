@@ -24,6 +24,10 @@ Capture durable lessons from real work so later GitHub Copilot sessions start wi
 | User corrects the agent | Append an entry to `.chrono/learnings/LEARNINGS.md` with category `correction` |
 | A project convention or better workflow is discovered | Append an entry to `.chrono/learnings/LEARNINGS.md` with category `best_practice` |
 | The user asks for a missing capability | Append an entry to `.chrono/learnings/FEATURE_REQUESTS.md` |
+| Chrono Plan identifies relevant prior lessons | Summarize them into `03-tasks-00-READBEFORE.md` |
+| Chrono Execute sees repeated preflight failure | Add or update an `ERRORS.md` entry with the command and root cause |
+| Chrono Execute reaches capped unresolved review findings | Add or update a `LEARNINGS.md` entry with the prevention pattern |
+| Chrono Phase Inspector resets tasks | Add or update a `LEARNINGS.md` entry for the phase-level gap |
 | A learning should shape future agent behavior | Promote it to `AGENTS.md`, `.github/copilot-instructions.md`, or `/memories/repo` |
 | A resolved learning is broadly reusable | Extract it into a new skill with `node skills/chrono-self-improvement/scripts/extract-skill.js <skill-name>` |
 
@@ -57,6 +61,45 @@ Create the directory if it does not exist:
 mkdir -p .chrono/learnings
 ```
 
+## Chrono Integration Contract
+
+`chrono-plan` and `chrono-execute` should use this skill as an explicit feedback loop, not as
+background theory.
+
+### Plan Startup
+
+When `chrono-plan` starts:
+1. Search `.chrono/learnings/` for pending high-priority entries.
+2. Search for entries related to the change's files, frameworks, commands, or domain.
+3. Summarize relevant entries into `01-specification.md`, `02-plan.md`, and
+   `03-tasks-00-READBEFORE.md`.
+4. Record when no relevant entries were found so downstream agents know the check happened.
+
+### Execute Startup and Loop
+
+When `chrono-execute` starts or reaches a phase boundary:
+1. Read pending high-priority entries from `.chrono/learnings/`.
+2. Read entries related to the current phase, task files, command failures, and framework.
+3. Pass only relevant summaries to Coder, Task Inspector, and Phase Inspector subagents.
+4. Prefer updating an existing entry with a matching `Pattern-Key` over creating a duplicate.
+
+### Required Logging Triggers
+
+Log or update an entry when:
+- The same preflight command fails twice for the same task/root cause.
+- A task reaches round 2 with unresolved blocking findings.
+- Phase inspection resets one or more tasks to 🔴 Incomplete.
+- The user corrects Chrono behavior or identifies missing workflow guidance.
+- A workaround or convention would save future Copilot sessions meaningful time.
+
+### Learning Quality Bar
+
+Only persist lessons that are reusable:
+- Include the exact command, task id, file path, or review finding when available.
+- State the prevention rule future agents should follow.
+- Keep one-off noise out of `.chrono/learnings/`; mention it in chat or task notes instead.
+- Use `Pattern-Key` for recurring classes of issues so repeated failures can be consolidated.
+
 ## Logging Format
 
 ### Learning Entry
@@ -83,6 +126,9 @@ Specific fix or improvement to make
 ### Metadata
 - Source: conversation | error | user_feedback | investigation
 - Related Files: path/to/file.ext
+- Chrono Artifact: `.agents/changes/.../03-tasks-XX-name.md` (optional)
+- Task ID: optional
+- Phase: optional
 - Tags: tag1, tag2
 - See Also: LRN-20250110-001 (optional)
 - Pattern-Key: simplify.dead_code | harden.input_validation (optional)
@@ -97,7 +143,7 @@ Specific fix or improvement to make
 
 Append to `.chrono/learnings/ERRORS.md`:
 
-```markdown
+````markdown
 ## [ERR-YYYYMMDD-XXX] command_or_tool_name
 
 **Logged**: ISO-8601 timestamp
@@ -123,11 +169,16 @@ If identifiable, what might resolve this
 
 ### Metadata
 - Reproducible: yes | no | unknown
+- Command: exact command if applicable
+- Exit Code: optional
+- Chrono Artifact: `.agents/changes/.../03-tasks-XX-name.md` (optional)
+- Task ID: optional
+- Phase: optional
 - Related Files: path/to/file.ext
 - See Also: ERR-20250110-001 (optional)
 
 ---
-```
+````
 
 ### Feature Request Entry
 
