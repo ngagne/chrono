@@ -87,7 +87,7 @@ Expected files (names follow Plan Mode defaults):
 - `02-plan.md`
 - `03-tasks-*` (files)
 - `PROGRESS.md`
-- `KNOWN_ISSUES.md` (create if missing; used for unresolved findings after the inspection cap)
+- `KNOWN_ISSUES.md` (create if missing; used for unresolved blocking findings after the inspection cap)
 
 If the folder contains equivalent artifacts but with different names, adapt pragmatically.
 
@@ -101,7 +101,7 @@ The implementation might already have been started. Use `PROGRESS.md` to determi
 - You MUST stop once the progress file indicates completion.
 - You MUST run adversarial task inspection with 1-2 inspector subagents after each completed task.
 - You MUST use distinct models for parallel inspectors: `GPT-5.4` and `Claude Sonnet`.
-- You MUST cap adversarial inspection at 2 rounds per task; after round 2, log unresolved findings to
+- You MUST cap adversarial inspection at 2 rounds per task; after round 2, log unresolved blocking findings to
    `KNOWN_ISSUES.md` and allow the task to remain ✅ Completed.
 - You MUST apply project-local execution overlays from `.chrono/sme-overlays/general/` and
    `.chrono/sme-overlays/execute/` when present.
@@ -145,7 +145,7 @@ tracker without the orchestrator or subagent racing those changes.
 
 - If `KNOWN_ISSUES.md` does not exist in the PRD folder:
    - Create it with a top-level heading `# Known Issues`.
-   - Use it to capture unresolved findings that remain after the maximum adversarial inspection rounds.
+   - Use it to capture unresolved blocking findings that remain after the maximum adversarial inspection rounds.
 
 ### Step 3 — Read state (every iteration)
 
@@ -202,6 +202,10 @@ After the Coder subagent completes a task and marks it ✅ Completed:
     `.chrono/sme-overlays/execute/` overlay file, including all shared overlays and any
     `inspector-*.md` overlays.
 - Pass the current adversarial round number (maximum 2) to each inspector.
+- Pass the exact task id, task file path, current phase, and implementation commit or commit range
+   that the inspector must review.
+- If this is round 2, pass the existing `INSPECTOR FEEDBACK` block and instruct inspectors to
+   verify each previous finding by id before looking for new regressions.
 - Each inspector reviews independently and returns a structured report only. Inspectors do NOT edit files,
    update `PROGRESS.md`, modify task files, or create commits.
 
@@ -209,22 +213,44 @@ After the Coder subagent completes a task and marks it ✅ Completed:
 
 After all inspector subagents for the round return:
 - Merge the findings into a single consolidated inspection result.
-- If NO inspector reports any findings:
+- Treat an inspector finding as valid only when it is blocking, task-scoped, evidence-backed, and
+   actionable:
+   - Blocking: it prevents the task from satisfying acceptance criteria, required tests, preflight,
+      security, data integrity, or a required user workflow.
+   - Task-scoped: it belongs to the current task or is a regression caused by the current task.
+   - Evidence-backed: it names the file/line, failing command, browser observation, or exact missing
+      acceptance criterion.
+   - Actionable: it states the expected behavior or verification step clearly enough for the Coder
+      to fix without guessing.
+- Downgrade non-blocking suggestions, style preferences, speculative concerns, and out-of-scope
+   enhancements to "Notes"; do not mark the task incomplete for Notes.
+- Deduplicate overlapping findings and assign stable ids (`F1`, `F2`, etc.). If round 2 repeats a
+   round 1 issue, preserve its original id and mark it `UNRESOLVED`.
+- If a finding is vague, contradictory, or missing evidence, do not send it to the Coder as-is.
+   Either discard it as a Note or rewrite it into a concrete blocking finding using evidence from
+   the inspector report.
+- If no valid blocking findings remain after consolidation:
    - Keep the task as ✅ Completed.
    - Update `PROGRESS.md` with a concise inspection pass note.
    - Add a change-log entry for the inspection pass.
    - Commit the progress update with `inspection: confirm task XX complete`.
-- If ANY inspector reports findings AND the task has remaining adversarial rounds:
+- If any valid blocking findings remain after consolidation AND the task has remaining adversarial rounds:
    - Mark the task as 🔴 Incomplete in `PROGRESS.md`.
-   - Replace or prepend the `INSPECTOR FEEDBACK` block in the task file with the consolidated findings.
+   - Replace or prepend the `INSPECTOR FEEDBACK` block in the task file with only the consolidated
+      blocking findings, their ids, evidence, required fixes, and verification commands.
+   - Preserve any non-blocking Notes separately under `Inspector Notes`; do not mix them into the
+      required rework checklist.
    - Add an inspection note that includes the current round, for example `Round 1/2 - rework required`.
    - Add a change-log entry summarizing the failed adversarial round.
    - Commit the progress/task-file update with `inspection: mark task XX incomplete - [brief reason]`.
    - Return to Step 7 so the next loop iteration sends the task back to the Coder.
-- If ANY inspector reports findings AND this is round 2/2:
+- If any valid blocking findings remain after consolidation AND this is round 2/2:
+   - Before logging known issues, confirm each remaining finding is still blocking and evidence-backed.
+      Drop or downgrade stale, already-fixed, vague, speculative, or out-of-scope findings.
    - Do NOT mark the task incomplete again.
    - Keep the task as ✅ Completed.
-   - Append the unresolved findings to `KNOWN_ISSUES.md` with the task id, phase, date, and a concise summary.
+   - Append only the unresolved blocking findings to `KNOWN_ISSUES.md` with the task id, phase, date,
+      evidence, impact, and why it was not fixed within the capped inspection loop.
    - Update `PROGRESS.md` so the task's inspector note references the known-issues entry.
    - Add a change-log entry noting that the task completed with logged known issues.
    - Commit the state update with `inspection: log known issues for task XX after round 2`.
@@ -307,7 +333,12 @@ You must:
    (Focus on tasks in the current phase only—do not jump to next phase tasks.)
    (This is not necessarily the first task in the phase, pick the most important.)
    (**DO NOT pick multiple tasks, one per call**)
-6. Read the full task file. **If the task is marked Incomplete**, read the entire file carefully, especially the top section which contains notes from the Inspector about what was done wrong or what is missing.
+6. Read the full task file. **If the task is marked Incomplete**, read the entire file carefully, especially the top `INSPECTOR FEEDBACK` section.
+   - Treat each blocking finding id (`F1`, `F2`, etc.) as a required fix.
+   - Do not mark the task complete again until every blocking finding has either been fixed or shown
+      to be invalid with concrete evidence.
+   - Update the feedback section with a brief `Coder Resolution` note for each finding id describing
+      what changed and how you verified it.
 7. Set the task as 🔄 In Progress in the progress tracker.
 8. **If the task involves API changes**, follow <API_DESIGN_RULES>: update the API spec file(s) first, commit the spec, then proceed with implementation.
 9. **Follow TDD** as described in <TDD_RULES>: write failing tests first, then implement to make them pass.
@@ -334,7 +365,9 @@ You do NOT trust the coding agent's assessment.
 
 Inputs:
 - Task file: `03-tasks-*.md` (the task that was just completed)
-- Latest commit: Review code changes from the most recent git commit
+- Task id and current phase: provided by orchestrator
+- Implementation commit or commit range: provided by orchestrator; review that implementation, not
+   later orchestration-only progress commits
 - Specification: `01-specification.md`
 - Plan: `02-plan.md`
 - Progress tracker: `PROGRESS.md`
@@ -353,7 +386,16 @@ You must:
    - **IMPORTANT**: If there is an existing "INSPECTOR FEEDBACK" section, read the entire task file (acceptance criteria and goals should remain visible after the feedback). This is a re-review of a previously incomplete task.
 2. Read all applicable SME overlays passed by the orchestrator before validating the task.
 
-3. **PRIMARY VALIDATION - Preflight Checks** (MANDATORY FIRST STEP):
+3. If this is round 2, begin with the existing `INSPECTOR FEEDBACK` block:
+   - Verify each prior finding id (`F1`, `F2`, etc.) individually.
+   - Mark each prior finding as `RESOLVED`, `UNRESOLVED`, or `INVALID`.
+   - A prior finding is `RESOLVED` only when the code change and verification evidence show it was fixed.
+   - A prior finding is `INVALID` only when it was out of scope, contradicted by the task/spec, or not
+      supported by evidence. Explain why briefly.
+   - After verifying prior findings, look only for new blocking regressions introduced by the rework.
+      Do not broaden the review into unrelated improvements in round 2.
+
+4. **PRIMARY VALIDATION - Preflight Checks** (MANDATORY VALIDATION GATE):
    - Run the preflight validation command specified in <PREFLIGHT>
    - If preflight fails for ANY reason, the task is INCOMPLETE by definition
    - Check console output for errors, warnings, or failures
@@ -361,7 +403,7 @@ You must:
    - Confirm linting, type checking, and build succeed
    - **If preflight fails, STOP here and mark incomplete** - do not proceed to other checks
 
-4. Review the latest git commit with a CRITICAL EYE:
+5. Review the implementation commit or commit range with a CRITICAL EYE:
    - **Acceptance criteria**: Are ALL criteria from the task file met? (no partial implementations, no placeholders)
    - **Unit tests**: Were tests ACTUALLY added and are they present in the code?
    - **Test coverage**: Do tests cover the added functionality and all reasonable use cases?
@@ -369,7 +411,7 @@ You must:
    - **Documentation**: Was documentation updated if required by the task?
    - **If re-reviewing a 🔴 Incomplete task**: Verify that ALL issues mentioned in the previous INSPECTOR FEEDBACK have been addressed
 
-5. **CRITICAL THINKING - Go Beyond Acceptance Criteria**:
+6. **CRITICAL THINKING - Go Beyond Acceptance Criteria**:
    Beyond checking the task file's explicit requirements, think critically about whether the implementation actually WORKS:
    - **Functional correctness**: Does the code do what it's supposed to do? Are there obvious logical errors?
    - **Runtime behavior**: Would this code work when executed? Are there syntax errors, type mismatches, or exceptions?
@@ -387,46 +429,65 @@ You must:
    - Incorrect logic that produces wrong results even if tests pass
    - Missing error handling for expected failure scenarios
 
-6. **Adversarial reviewer stance**:
+7. **Finding quality bar**:
+   - Report only blocking findings: issues that prevent acceptance criteria, required tests, preflight,
+      security, data integrity, or a required user workflow from passing.
+   - Each finding must include evidence: file/line, failing command output summary, browser observation,
+      or exact missing acceptance criterion.
+   - Each finding must be task-scoped: caused by this implementation or required by this task.
+   - Each finding must be actionable: state the expected behavior and a concrete verification step.
+   - Put non-blocking concerns, style preferences, speculative risks, and future enhancements under
+      `Notes`, not `Findings`.
+
+8. **Adversarial reviewer stance**:
    - Be intentionally skeptical and look for failure modes, regressions, and blind spots.
    - Favor concrete evidence over speculation.
    - If the task is broad, choose the most failure-prone angle and push hard on it.
    - Do not water down your findings because another inspector may also be reviewing the task.
+   - Do not create churn by inventing new scope or restating vague concerns as blockers.
 
-7. Your findings:
+9. Your findings:
    - **If task is COMPLETE and CORRECT**: Output a brief confirmation (1-2 sentences). The orchestrator will keep it as ✅ Completed.
    - **If task is INCOMPLETE or INCORRECT**: Output a clear, structured report describing:
      - What WAS done correctly (if anything)
-     - What is MISSING (specific features, test coverage, documentation, etc.)
-     - What is WRONG (incorrect implementation, bugs, design issues, etc.)
+     - Each blocking missing requirement or incorrect behavior as a separate finding
      - Specific file paths and line numbers where issues exist
-     - Clear, actionable instructions for the next coding attempt
-     - Do NOT suggest fixes—just point out what's wrong and what needs attention
+     - Clear required fixes for the next coding attempt
+     - Required verification commands or checks the Coder must run
 
-8. Return your result in this structure so the orchestrator can consolidate multiple inspectors:
+10. Return your result in this structure so the orchestrator can consolidate multiple inspectors:
    ```
    Inspection Round: <1|2>
    Inspector Model: <GPT-5.4|Claude Sonnet>
    Verdict: <PASS|FINDINGS>
 
+   Prior Finding Status (round 2 only):
+   - F1: <RESOLVED|UNRESOLVED|INVALID> - <evidence>
+
    What Was Done:
    - ...
 
-   What is Missing:
-   - ...
+   Findings:
+   - Temporary ID: <F?>
+     Severity: <BLOCKING>
+     Category: <acceptance|tests|preflight|runtime|integration|security|docs>
+     Evidence: <file:line, failing command summary, browser observation, or missing criterion>
+     Impact: <why this prevents completion>
+     Required Fix: <expected behavior or missing artifact>
+     Verification: <command/check/browser action>
 
-   What is Wrong:
-   - [file:line - issue]
+   Notes:
+   - <non-blocking observations only>
 
    Next Steps for Coder:
    1. ...
    ```
 
-9. Do NOT edit `PROGRESS.md`, task files, or `KNOWN_ISSUES.md`.
+11. Do NOT edit `PROGRESS.md`, task files, or `KNOWN_ISSUES.md`.
 
-10. Do NOT create commits.
+12. Do NOT create commits.
 
-11. Return control to the orchestrator.
+13. Return control to the orchestrator.
 </TASK_INSPECTOR_SUBAGENT_INSTRUCTIONS>
 
 <PHASE_INSPECTOR_SUBAGENT_INSTRUCTIONS>
@@ -569,24 +630,34 @@ When a task is marked as 🔴 Incomplete after adversarial inspection, the orche
 ## INSPECTOR FEEDBACK (Latest)
 
 **Status**: Incomplete - Requires rework
+**Inspection Round**: <1/2>
+
+### Blocking Findings
+
+#### F1 - <short title>
+- **Severity**: Blocking
+- **Category**: <acceptance|tests|preflight|runtime|integration|security|docs>
+- **Evidence**: <file.ts:line, failing command summary, browser observation, or missing criterion>
+- **Impact**: <why this prevents task completion>
+- **Required Fix**: <expected behavior or missing artifact>
+- **Verification**: <command/check/browser action the Coder must run>
+- **Coder Resolution**: <filled in by Coder during rework>
 
 **What Was Done**:
 - [brief summary of correct parts]
 
-**What is Missing**:
-- [specific gaps: test coverage, features, documentation]
+### Inspector Notes
+- [non-blocking observations only; do not treat as required rework]
 
-**What is Wrong**:
-- [file.ts:line - specific bug or incorrect behavior]
-
-**Next Steps for Coder**:
+### Next Steps for Coder
 1. Focus on: [primary issue]
 2. Verify: [specific acceptance criterion]
 3. Ensure: [test coverage needed]
 ```
 
 This section is **always at the top** so the Coder subagent sees it immediately when reading the task file.
-The Coder must address all points in this section before marking the task complete again.
+The Coder must address every Blocking Finding and fill in `Coder Resolution` before marking the
+task complete again. Inspector Notes are advisory only and must not keep the task incomplete.
 
 </PROGRESS_FILE_TEMPLATE>
 
@@ -646,7 +717,7 @@ When any task involves creating or modifying an API (REST, GraphQL, AsyncAPI):
 <PREFLIGHT>
 To validate an implementation, ensure the preflight validation script passes.
 
-See in the AGENTS.md or CONSTITUION.md for the syntax to run preflight checks.
+See `AGENTS.md` or project documentation for the syntax to run preflight checks.
 
 - `just preflight`
 - `just sct`
@@ -677,9 +748,11 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
   - Tests cover the added functionality and use cases
   - No placeholders or TODOs in implementation
   - Preflight checks pass
-- Can send the task back as 🔴 Incomplete if issues found and the round cap has not been reached
-- After 2 adversarial rounds, any remaining findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
-- Provides detailed feedback to Coder for rework until the cap is reached
+- Reports only blocking, task-scoped, evidence-backed findings as rework blockers
+- Uses stable finding ids so round 2 verifies whether each round 1 issue was actually fixed
+- Can send the task back as 🔴 Incomplete if valid blocking findings remain and the round cap has not been reached
+- After 2 adversarial rounds, only unresolved blocking findings are logged to `KNOWN_ISSUES.md` and the task stays ✅ Completed
+- Provides detailed feedback to Coder with required fixes, verification steps, and a resolution checklist
 
 ### Tier 3: Phase Inspector (Phase-Level QA)
 - Triggered when all tasks in a phase are ✅ Completed by Inspector
@@ -695,16 +768,17 @@ Ralph includes a three-tier quality assurance system to prevent incomplete or in
 ### QA Loop Impact
 
 When a task receives findings during adversarial inspection:
-1. Orchestrator consolidates the parallel inspector reports
+1. Orchestrator consolidates the parallel inspector reports into valid blocking findings and advisory Notes
 2. If rounds remain, orchestrator prepends or replaces the `INSPECTOR FEEDBACK` section in the task file
 3. Feedback is placed at TOP of file for Coder to see immediately
-4. Coder sees incomplete task (🔴 priority) and reads feedback
-5. Coder implements fixes based on feedback
-6. Adversarial inspectors verify again, up to a maximum of 2 rounds
-7. If findings still remain after round 2, orchestrator logs them to `KNOWN_ISSUES.md` and keeps the task ✅ complete
+4. Coder sees incomplete task (🔴 priority), fixes every blocking finding id, and records `Coder Resolution`
+5. Coder reruns the required verification checks from the feedback
+6. Adversarial inspectors verify prior findings by id, then check only for new blocking regressions
+7. If unresolved blocking findings still remain after round 2, orchestrator logs them to `KNOWN_ISSUES.md` and keeps the task ✅ complete
 
 This ensures:
 - Incomplete work is caught early, not after phases are done
 - Rework is prioritized (🔴 tasks before new tasks)
 - Coding agents know exactly what's wrong and what to fix
+- Re-review focuses on unresolved blockers instead of expanding into unrelated critique
 - Phase boundaries have human-validated quality gates (if HITL)
