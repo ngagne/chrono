@@ -171,21 +171,21 @@ MANDATORY steps:
 ### PHASE 2: First Question Set (10–15 Questions)
 
 After context gathering, you MUST:
-1. Formulate **10–15 clarifying questions** respecting the question guidelines below in a single message
-2. Questions should cover:
+1. Plan **10–15 clarifying questions** covering:
    - Functional requirements and edge cases
    - Non-functional requirements (performance, security, etc.)
    - Integration points and dependencies
    - User experience and interface considerations
    - Constraints and assumptions
-3. MANDATORY: Wait for user responses before proceeding
-4. DO NOT skip this phase — questions are essential for quality specification
-5. After receiving all answers, ask the user if they want to continue with this selectable prompt:
+2. Ask each question **one at a time** using the `vscode_askQuestions` tool, respecting the question
+   guidelines below. Wait for the user's answer before asking the next question.
+3. DO NOT skip this phase — questions are essential for quality specification
+4. After all questions are answered, ask the user if they want to continue using `vscode_askQuestions`:
    - "Continue to next step" (recommended)
    - "Discuss more gray-areas"
 
    If user selects "Discuss more gray-areas", stay in Phase 2 and ask targeted follow-up questions
-   on the identified gray-areas before asking again.
+   one at a time before asking again.
 
 #### Question guidelines
 
@@ -194,45 +194,28 @@ Good questions are:
 - Prioritized (most critical first)
 - Based on what you learned in Phase 1
 - Designed to uncover ambiguities in the request
-- Grouped by theme (functional, technical, UX, etc.)
 
-For each question, present exactly 4 selectable options using the GitHub Copilot `vscode_askQuestions` format:
+For each question, call `vscode_askQuestions` with a **single question** containing exactly 4 options:
 - The 3 most relevant/likely answers for that specific question
 - The most recommended option listed first, suffixed with "(recommended)"
 - A final option: "Other (type your answer)"
 
-Example format:
+Call the tool once per question and wait for the answer before calling it again for the next question.
+
+Example call (one question at a time):
 ```
-## Clarifying Questions (Phase 1/2)
-
-### Functional Requirements
-1. [Specific question about feature behavior]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-2. [Question about edge case handling]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-...
-
-### Technical Constraints
-6. [Question about performance requirements]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-...
-
-### Integration & Dependencies
-11. [Question about existing systems]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-...
+vscode_askQuestions([
+  {
+    header: "Q1 of 12 — Feature behavior",
+    question: "[Specific question about feature behavior]",
+    options: [
+      { label: "[Most likely answer]", recommended: true },
+      { label: "[Second likely answer]" },
+      { label: "[Third likely answer]" },
+      { label: "Other (type your answer)" }
+    ]
+  }
+])
 ```
 
 ### PHASE 3: Deep Analysis and Second Question Set (5–10 Questions)
@@ -241,16 +224,15 @@ After receiving answers to Phase 2:
 1. Analyze the user's responses critically
 2. Identify gaps, contradictions, or areas needing deeper exploration
 3. Use tools to explore additional code/documentation based on new information
-4. Formulate **5–10 targeted follow-up questions** respecting the follow-up question guidelines below
-   in a single message
-5. MANDATORY: Wait for user responses before proceeding
-6. These questions should be more technical and specific than Phase 2
-7. After receiving all answers, ask the user if they want to continue with this selectable prompt:
+4. Plan **5–10 targeted follow-up questions** that are more technical and specific than Phase 2
+5. Ask each question **one at a time** using `vscode_askQuestions`, respecting the follow-up question
+   guidelines below. Wait for the user's answer before asking the next question.
+6. After all questions are answered, ask the user if they want to continue using `vscode_askQuestions`:
    - "Continue to next step" (recommended)
    - "Discuss more gray-areas"
 
    If user selects "Discuss more gray-areas", stay in Phase 3 and ask targeted follow-up questions
-   on the identified gray-areas before asking again.
+   one at a time before asking again.
 
 #### Follow-up question guidelines
 
@@ -261,37 +243,27 @@ Follow-up questions should:
 - Validate assumptions about existing code/systems
 - Confirm edge cases and error handling strategies
 
-For each question, present exactly 4 selectable options using the GitHub Copilot `vscode_askQuestions` format:
+For each question, call `vscode_askQuestions` with a **single question** containing exactly 4 options:
 - The 3 most relevant/likely answers for that specific question
 - The most recommended option listed first, suffixed with "(recommended)"
 - A final option: "Other (type your answer)"
 
-Example format:
+Call the tool once per question and wait for the answer before calling it again for the next question.
+
+Example call (one question at a time):
 ```
-## Follow-up Questions (Phase 2/2)
-
-Based on your previous answers, I need to clarify:
-
-### [Theme from previous answer]
-1. [Specific technical question]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-2. [Edge case validation]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-...
-
-### [Another theme]
-6. [Integration detail question]
-   - [Most likely answer] (recommended)
-   - [Second likely answer]
-   - [Third likely answer]
-   - Other (type your answer)
-...
+vscode_askQuestions([
+  {
+    header: "Follow-up Q3 of 7 — Edge case handling",
+    question: "[Specific technical question]",
+    options: [
+      { label: "[Most likely answer]", recommended: true },
+      { label: "[Second likely answer]" },
+      { label: "[Third likely answer]" },
+      { label: "Other (type your answer)" }
+    ]
+  }
+])
 ```
 
 ### PHASE 4: Specification Generation
